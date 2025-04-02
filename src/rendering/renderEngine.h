@@ -15,6 +15,9 @@
 #include <iostream>
 #include <fstream>
 
+#include "camera.h"
+
+
 #define VK_CHECK(x)														\
 	{																	\
 		VkResult err = x;												\
@@ -182,6 +185,17 @@ public:
 
 	bool should_quit = false;
 
+	Camera main_camera;
+
+	struct Camera_movement{
+		float v_x = 0;
+		float v_y = 0;
+
+		float pitch = 0;
+		float yaw = 0;
+	};
+
+	Camera_movement main_camera_movement;
 
 private:
 	
@@ -205,4 +219,7 @@ private:
 	// Glavni proces pozivanja sjenèara
 	void compute();
 
+
+	void handle_input();
+	void process_movement();
 };

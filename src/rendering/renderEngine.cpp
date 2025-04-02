@@ -20,6 +20,8 @@ void RenderEngine::init(){
 		window_flags
 	);
 
+	SDL_SetRelativeMouseMode(SDL_TRUE);
+
 	// Inicijalizacija Vulkan instance i dohvaæanje grafièkog procesora
 	init_vulkan();
 
@@ -620,22 +622,81 @@ void RenderEngine::run(){
 	
 
 		// Procesiranje korisnièkog inputa
-		SDL_Event e;
-		while (SDL_PollEvent(&e) != 0)
-		{
-			// Zatvaranje procesa pri kliku na X gumb ili alt-f4
-			if (e.type == SDL_QUIT){
-				should_quit = true;
-				break;
-			}
+		handle_input();
 
-		}
+		process_movement();
 
 		compute();
 
 	}
 
 
+}
+
+void RenderEngine::handle_input(){
+
+
+	SDL_Event e;
+	while ((SDL_PollEvent(&e) != 0) && !should_quit)
+	{
+
+		if (e.type == SDL_QUIT){
+
+		}
+
+		switch (e.type)
+		{
+		// Zatvaranje procesa pri kliku na X gumb ili alt-f4
+		case (SDL_QUIT):
+		{
+			should_quit = true;
+			break;
+		}
+		case (SDL_KEYDOWN):
+		{
+
+
+			break;
+		}
+		case (SDL_KEYUP):
+		{
+
+
+			break;
+		}
+		case (SDL_MOUSEMOTION):
+		{
+			main_camera_movement.yaw += e.motion.xrel / 1000.0f;
+			main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
+
+			break;
+		}
+		default:
+			break;
+		}
+
+	}
+
+
+}
+
+void RenderEngine::process_movement(){
+	main_camera.front = glm::vec3(0.0f, 0.0f, 1.0f);
+	main_camera.up = glm::vec3(0.0f, 1.0f, 0.0f);
+	main_camera.right = glm::vec3(1.0f, 0.0f, 0.0f);
+
+	glm::mat4 rotate_matrix = glm::mat4(
+		glm::vec4(main_camera.right,0),
+		glm::vec4(main_camera.up,0),
+		glm::vec4(main_camera.front,0),
+		glm::vec4(0,0,0,1)
+	);
+
+	rotate_matrix = glm::rotate(main_camera_movement.yaw, main_camera.up) * glm::rotate(main_camera_movement.pitch, main_camera.right);
+
+	main_camera.right = rotate_matrix[0];
+	main_camera.up = rotate_matrix[1];
+	main_camera.front = rotate_matrix[2];
 }
 
 void RenderEngine::compute(){
@@ -674,8 +735,15 @@ void RenderEngine::compute(){
 
 	// Raèunanje novih uniformnih podataka - u ovom sluèaju fiksna pozicija kamere
 	shader_input_buffer_1 input;
-	input.lookDir = glm::mat4(1);
-
+	
+	input.lookDir = glm::mat4(
+		glm::vec4(main_camera.right,0),
+		glm::vec4(main_camera.up,0),
+		glm::vec4(main_camera.front,0),
+		glm::vec4(0,0,0,1)
+	);
+	
+	
 	input.initPos = glm::vec4(0,0,0,0);
 	input.initDir = glm::vec4(0.0f, 0.0f, 0.51f, 0);
 

@@ -30,17 +30,21 @@ void main(){
     uint gIDy = gl_GlobalInvocationID.y;
     uint gID = gIDx + gIDy * imageSize(outputPixels).x;
 
-    // Kopirane funkcije za pretvorbu smjerova, zasad nisu potrebne
-    /*
+    
     vec3 initPos  = mat3(initInfo.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yPosMultiplier, 0.0) + initInfo.initPos.xyz;
     vec3 velocity =                          vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yDirMultiplier, 0.0) + initInfo.initDir.xyz;
 
     
     velocity = mat3(initInfo.lookDir) * velocity;
-    */ 
+    
+    if (velocity.y > 0){
+        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,0,abs(normalize(velocity).y),0));
+    }
+    else{
+        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
+    }
 
-
-	imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1.0,0,gIDy/(float(imageSize(outputPixels).y)),0));
+	
 
 	
 }
