@@ -1,0 +1,46 @@
+#version 450
+
+layout (local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0) uniform InputBuffer1 {
+    mat4 lookDir;
+
+    vec4 initPos;
+    vec4 initDir;
+
+	float xPosMultiplier;
+	float yPosMultiplier;
+	
+    float xDirMultiplier;
+	float yDirMultiplier;
+
+} initInfo;
+
+
+layout(set = 0, binding = 1, rgba8) uniform image2D outputPixels;
+
+
+
+
+
+void main(){
+
+    // dohvati globalni ID jedinice - jedna jedinica se izvodi po pikselu slike
+    uint gIDx = gl_GlobalInvocationID.x; // Odgovara x i y koordinatama slike
+    uint gIDy = gl_GlobalInvocationID.y;
+    uint gID = gIDx + gIDy * imageSize(outputPixels).x;
+
+    // Kopirane funkcije za pretvorbu smjerova, zasad nisu potrebne
+    /*
+    vec3 initPos  = mat3(initInfo.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yPosMultiplier, 0.0) + initInfo.initPos.xyz;
+    vec3 velocity =                          vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yDirMultiplier, 0.0) + initInfo.initDir.xyz;
+
+    
+    velocity = mat3(initInfo.lookDir) * velocity;
+    */ 
+
+
+	imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1.0,0,gIDy/(float(imageSize(outputPixels).y)),0));
+
+	
+}

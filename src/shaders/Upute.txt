@@ -1,0 +1,3 @@
+Sjenčari se trebaju ručno kompajlirati u SPIR-V jezik.
+Priložena je skripta koja pronalazi lokaciju kompajlera u Vulkan SDK-u te automatski pozove kompajler za datoteku "main_shader.comp"
+Ovo je potrebno izvesti svaki put kada se kod sječara promijeni, te također ponovno izgraditi (full rebuild) projekt ili ručno kopirati .spv datoteku u build folder (budući da se tamo zapravo koristi)
