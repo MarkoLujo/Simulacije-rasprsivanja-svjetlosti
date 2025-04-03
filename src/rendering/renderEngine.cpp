@@ -1025,7 +1025,7 @@ void RenderEngine::recreate_swapchain() {
 		setWrite.pNext = nullptr;
 
 
-		setWrite.dstBinding = 4;
+		setWrite.dstBinding = 2;
 
 		setWrite.dstSet = _frames[i]._compute_descriptor_set;
 		setWrite.descriptorCount = 1;
