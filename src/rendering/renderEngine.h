@@ -16,7 +16,7 @@
 #include <fstream>
 
 #include "camera.h"
-
+#include "../simulation/sun.h"
 
 #define VK_CHECK(x)														\
 	{																	\
@@ -62,7 +62,8 @@ struct DeletionQueue
 struct Frame {
 
 	// Bufferi za GPU podatke
-	AllocatedBuffer _uniform_buffer;
+	AllocatedBuffer _camera_uniform_buffer;
+	AllocatedBuffer _atmosphere_uniform_buffer;
 
 	AllocatedImage _output_image;
 	VkImageView _output_image_view;
@@ -83,7 +84,8 @@ struct Frame {
 };
 
 
-// Odgovara strukturi koju 1. sjenèar prima
+// Odgovara¸1. strukturi koju glavni sjenèar prima
+// Predstavlja informacije o kameri
 struct shader_input_buffer_1 {
 	glm::mat4 lookDir;
 
@@ -97,6 +99,25 @@ struct shader_input_buffer_1 {
 	float yDirMultiplier;
 
 };
+
+struct shader_input_buffer_2 {
+	glm::mat4 lookDir;
+
+	glm::vec4 initPos;
+	glm::vec4 initDir;
+
+	float xPosMultiplier;
+	float yPosMultiplier;
+
+	float xDirMultiplier;
+	float yDirMultiplier;
+
+};
+
+
+
+
+
 
 class RenderEngine {
 
@@ -183,7 +204,11 @@ public:
 
 	
 
+
+
 	bool should_quit = false;
+
+	// Strukture simulacije
 
 	Camera main_camera;
 
@@ -196,6 +221,9 @@ public:
 	};
 
 	Camera_movement main_camera_movement;
+
+	Sun sun;
+
 
 private:
 	

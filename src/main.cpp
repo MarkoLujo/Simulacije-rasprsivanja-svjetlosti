@@ -19,6 +19,14 @@ int main(int argc, char* argv){
 	main_engine._screen_size_x = 1600;
 	main_engine._screen_size_y = 900;
 
+	main_engine.sun = Sun{
+		1.496f * powf(10, 8) * 1000, // Udaljenost
+		1391400.0f * 1000, // Velièina
+
+		50.0f // Kut nagiba
+		
+	};
+
 	main_engine.init();
 
 

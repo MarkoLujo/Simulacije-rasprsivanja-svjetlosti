@@ -14,10 +14,18 @@ layout(set = 0, binding = 0) uniform InputBuffer1 {
     float xDirMultiplier;
 	float yDirMultiplier;
 
-} initInfo;
+} camera_info;
 
 
-layout(set = 0, binding = 1, rgba8) uniform image2D outputPixels;
+layout(set = 0, binding = 1) uniform InputBuffer2 {
+    float sun_distance;
+    float sun_radius;
+    float sun_angle;
+
+
+} atmosphere_info;
+
+layout(set = 0, binding = 2, rgba8) uniform image2D outputPixels;
 
 
 
@@ -30,18 +38,42 @@ void main(){
     uint gIDy = gl_GlobalInvocationID.y;
     uint gID = gIDx + gIDy * imageSize(outputPixels).x;
 
-    
-    vec3 initPos  = mat3(initInfo.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yPosMultiplier, 0.0) + initInfo.initPos.xyz;
-    vec3 velocity =                          vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*initInfo.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*initInfo.yDirMultiplier, 0.0) + initInfo.initDir.xyz;
+    // Raèunanje pozicije i smjera zrake na temelju pozicije kamere i njezinoj širini pogleda (izraženom kao faktor nagiba)
+    vec3 initPos  = mat3(camera_info.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yPosMultiplier, 0.0) + camera_info.initPos.xyz;
+    vec3 velocity =                          vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yDirMultiplier, 0.0) + camera_info.initDir.xyz;
 
+    // Rotacija zrake zajedno s kamerom
+    velocity = mat3(camera_info.lookDir) * velocity;
     
-    velocity = mat3(initInfo.lookDir) * velocity;
-    
-    if (velocity.y > 0){
-        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,0,abs(normalize(velocity).y),0));
+    if (velocity.y > 0){ // Pod
+        
+        vec4 floor_color = vec4(0.7,0.7,0.7,0);
+        
+        float sun_light = 0;
+        if (atmosphere_info.sun_angle <= 180) {
+            float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 1.0]
+            tmp -= 0.5; // [-0.5 - 0.5]
+            tmp = -abs(tmp); // [-0.5 - 0 - -0.5]
+            tmp += 0.5; // [0 - 0.5 - 0]
+            sun_light = tmp * 2; // [0 - 1 - 0]
+        }
+
+        imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
     }
-    else{
-        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
+    else{ // Zrak
+
+        // Sunce æe uvijek biti na xy ravnini
+        vec3 sun_vector = vec3(cos(radians(atmosphere_info.sun_angle)), sin(radians(atmosphere_info.sun_angle)),0); // Vektor sunca od kamere. Zbog ogromne udaljenosti, možemo pretpostaviti da je kamera u 0,0,0
+        float vector_angle = acos(dot(normalize(sun_vector),normalize(velocity))); // Razlika vektora piksela i vektora sunca u radijanima
+
+        if (abs(tan(vector_angle)) < (atmosphere_info.sun_radius/atmosphere_info.sun_distance) && tan(vector_angle) < 0){ // Gledamo direktno u sunce
+            imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
+        }
+        else{
+            imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
+        }
+
+       
     }
 
 	

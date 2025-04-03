@@ -147,12 +147,12 @@ void RenderEngine::init_vulkan(){
 
 void RenderEngine::allocate_compute_buffers(){
 
-	// Alocira se 1 uniforman spremnik
+	// Alociraju se 2 uniformna spremnika
 
 
 	VkBufferCreateInfo bufferInfo = {};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = _max_uniform_memory;
+	bufferInfo.size = _max_uniform_memory / 2;
 	bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
 
@@ -161,12 +161,18 @@ void RenderEngine::allocate_compute_buffers(){
 
 	for (int i = 0; i < _max_frames_in_flight; i++){
 		VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
-			&_frames[i]._uniform_buffer._buffer,
-			&_frames[i]._uniform_buffer._allocation,
+			&_frames[i]._camera_uniform_buffer._buffer,
+			&_frames[i]._camera_uniform_buffer._allocation,
+			nullptr));
+
+		VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+			&_frames[i]._atmosphere_uniform_buffer._buffer,
+			&_frames[i]._atmosphere_uniform_buffer._allocation,
 			nullptr));
 
 		_main_deletion_queue.push_function([=]() {
-			vmaDestroyBuffer(_allocator, _frames[i]._uniform_buffer._buffer, _frames[i]._uniform_buffer._allocation);
+			vmaDestroyBuffer(_allocator, _frames[i]._camera_uniform_buffer._buffer, _frames[i]._camera_uniform_buffer._allocation);
+			vmaDestroyBuffer(_allocator, _frames[i]._atmosphere_uniform_buffer._buffer, _frames[i]._atmosphere_uniform_buffer._allocation);
 			});
 	}
 
@@ -234,36 +240,42 @@ void RenderEngine::allocate_compute_images(){
 }
 void RenderEngine::init_compute_descriptors(){
 
-	// Opisnik uniformnog spremnika
+	// Opisnik 1. uniformnog spremnika
 	VkDescriptorSetLayoutBinding computeBinding0 = {};
 	computeBinding0.binding = 0;
 	computeBinding0.descriptorCount = 1;
 	computeBinding0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	computeBinding0.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	// Opisnik slike
+	// 2.
 	VkDescriptorSetLayoutBinding computeBinding1 = computeBinding0;
 	computeBinding1.binding = 1;
-	computeBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	computeBinding1.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+	// Opisnik slike
+	VkDescriptorSetLayoutBinding computeBinding2 = computeBinding0;
+	computeBinding2.binding = 2;
+	computeBinding2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
 
 	VkDescriptorSetLayoutBindingFlagsCreateInfo bindingInfo;
 	bindingInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
 	bindingInfo.pNext = nullptr;
-	VkDescriptorBindingFlags flags[2] = {0,
+	VkDescriptorBindingFlags flags[3] = {0,
+										 0,
 										 0};
 	bindingInfo.pBindingFlags = flags;
-	bindingInfo.bindingCount = 2;
+	bindingInfo.bindingCount = 3;
 
 	// Opisnik cijelog seta
 	VkDescriptorSetLayoutCreateInfo setinfo = {};
 	setinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	setinfo.pNext = &bindingInfo;
 
-	setinfo.bindingCount = 2;
+	setinfo.bindingCount = 3;
 	setinfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
-	VkDescriptorSetLayoutBinding bindings[2] = { computeBinding0, computeBinding1};
+	VkDescriptorSetLayoutBinding bindings[3] = { computeBinding0, computeBinding1, computeBinding2};
 	setinfo.pBindings = bindings;
 
 	vkCreateDescriptorSetLayout(_device, &setinfo, nullptr, &_compute_set_layout);
@@ -276,7 +288,7 @@ void RenderEngine::init_compute_descriptors(){
 	
 	std::vector<VkDescriptorPoolSize> sizes =
 	{
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1*_max_frames_in_flight },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2*_max_frames_in_flight },
 		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1*_max_frames_in_flight }
 	};
 
@@ -306,9 +318,9 @@ void RenderEngine::init_compute_descriptors(){
 
 		vkAllocateDescriptorSets(_device, &allocInfo, &_frames[i]._compute_descriptor_set);
 
-		// Alokacija uniformnog opisnika
+		// Alokacija uniformnih opisnika
 		VkDescriptorBufferInfo binfo = {};
-		binfo.buffer = _frames[i]._uniform_buffer._buffer;
+		binfo.buffer = _frames[i]._camera_uniform_buffer._buffer;
 		binfo.offset = 0;
 		binfo.range = sizeof(shader_input_buffer_1);
 
@@ -325,6 +337,19 @@ void RenderEngine::init_compute_descriptors(){
 
 		vkUpdateDescriptorSets(_device, 1, &setWrite, 0, nullptr);
 
+		// Nakon Update naredbe, strukti binfo i setwrite mogu se ponovno iskoristiti za opisivanje sljedeæeg spremnika
+		binfo.buffer = _frames[i]._atmosphere_uniform_buffer._buffer;
+		binfo.offset = 0;
+		binfo.range = sizeof(shader_input_buffer_1);
+
+		// Pristupa se s 1. bindingom u sjenèaru
+		setWrite.dstBinding = 1;
+		setWrite.dstSet = _frames[i]._compute_descriptor_set;
+		setWrite.descriptorCount = 1;
+		setWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		setWrite.pBufferInfo = &binfo;
+		vkUpdateDescriptorSets(_device, 1, &setWrite, 0, nullptr);
+
 
 		// Alokacija opisnika slike
 		VkDescriptorImageInfo iinfo = {};
@@ -333,12 +358,12 @@ void RenderEngine::init_compute_descriptors(){
 		iinfo.imageView = _frames[i]._output_image_view;
 		iinfo.sampler = nullptr;
 
-		setWrite.dstBinding = 1;
+		setWrite.dstBinding = 2;
 		setWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 		setWrite.pImageInfo = &iinfo;
 		setWrite.pBufferInfo = nullptr;
 		vkUpdateDescriptorSets(_device, 1, &setWrite, 0, nullptr);
-
+		
 
 	}
 }
@@ -654,7 +679,24 @@ void RenderEngine::handle_input(){
 		}
 		case (SDL_KEYDOWN):
 		{
+			switch (e.key.keysym.sym)
+			{
+			case (SDLK_KP_PLUS):
+			{
+				sun.angle += 5;
+				while (sun.angle > 360) sun.angle -= 360;
 
+			} break;
+			case (SDLK_KP_MINUS):
+			{
+				sun.angle -= 5;
+				while (sun.angle < 0) sun.angle += 360;
+
+			} break;
+
+			default:
+				break;
+			}
 
 			break;
 		}
@@ -734,9 +776,9 @@ void RenderEngine::compute(){
 
 
 	// Raèunanje novih uniformnih podataka - u ovom sluèaju fiksna pozicija kamere
-	shader_input_buffer_1 input;
+	shader_input_buffer_1 camera_input;
 	
-	input.lookDir = glm::mat4(
+	camera_input.lookDir = glm::mat4(
 		glm::vec4(main_camera.right,0),
 		glm::vec4(main_camera.up,0),
 		glm::vec4(main_camera.front,0),
@@ -744,20 +786,24 @@ void RenderEngine::compute(){
 	);
 	
 	
-	input.initPos = glm::vec4(0,0,0,0);
-	input.initDir = glm::vec4(0.0f, 0.0f, 0.51f, 0);
+	camera_input.initPos = glm::vec4(main_camera.position,0);
+	camera_input.initDir = glm::vec4(0.0f, 0.0f, 0.51f, 0); // Kamera uvijek gleda relativno ispred sebe
 
-	input.xPosMultiplier = 0;
-	input.yPosMultiplier = 0;
+	camera_input.xPosMultiplier = 0;
+	camera_input.yPosMultiplier = 0;
 
-	input.xDirMultiplier = 1.0f/1000.0f;
-	input.yDirMultiplier = 1.0f/1000.0f;
+	camera_input.xDirMultiplier = 1.0f/1000.0f;
+	camera_input.yDirMultiplier = 1.0f/1000.0f;
 
 	// Prebacivanje uniformnih podataka na GPU
 	void* data;
-	vmaMapMemory(_allocator, _frames[_current_frame]._uniform_buffer._allocation, &data);
-	memcpy(data, &input, sizeof(shader_input_buffer_1));
-	vmaUnmapMemory(_allocator, _frames[_current_frame]._uniform_buffer._allocation);
+	vmaMapMemory(_allocator, _frames[_current_frame]._camera_uniform_buffer._allocation, &data);
+	memcpy(data, &camera_input, sizeof(shader_input_buffer_1));
+	vmaUnmapMemory(_allocator, _frames[_current_frame]._camera_uniform_buffer._allocation);
+
+	vmaMapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation, &data);
+	memcpy(data, &sun, sizeof(shader_input_buffer_2));
+	vmaUnmapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation);
 
 	// Postavljanje naredbenog spremnika
 	VkCommandBufferBeginInfo cmdBeginInfo = {};
