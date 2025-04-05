@@ -48,18 +48,17 @@ void main(){
 
     // Raèunanje pozicije i smjera zrake na temelju pozicije kamere i njezinoj širini pogleda (izraženom kao faktor nagiba)
     vec3 initPos  = mat3(camera_info.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yPosMultiplier, 0.0) + camera_info.initPos.xyz;
-    vec3 velocity =                          vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yDirMultiplier, 0.0) + camera_info.initDir.xyz;
+    vec3 velocity =                             vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yDirMultiplier, 0.0) + camera_info.initDir.xyz;
 
     // Rotacija zrake zajedno s kamerom
     velocity = mat3(camera_info.lookDir) * velocity;
     
 
+    // Rani završetak ako je zraka u planetu
 
     // Centar planeta je središte koordinatnog sustava, tj. 0,0,0
-
     vec4 floor_color = vec4(0.7,0.7,0.7,0);
-
-    if (length(camera_info.initPos) < atmosphere_info.planet_radius){ // Kamera je u planetu
+    if (length(initPos) < atmosphere_info.planet_radius){ // Zraka je u planetu
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color);
         return;
     }
@@ -69,13 +68,13 @@ void main(){
 
     // Ukoliko se zraka približava planetu, presjek je moguæ
 
-    float planet_vector_dot = dot(normalize(vec3(-camera_info.initPos)),normalize(velocity)); // Skalarni umnožak vektora piksela i vektora kamere do planeta u radijanima
+    float planet_vector_dot = dot(normalize(vec3(-initPos)),normalize(velocity)); // Skalarni umnožak vektora piksela i poèetnog vektora pozicije zrake do planeta u radijanima
     if (planet_vector_dot <= 0){ // Kut im je manji od 90
 
         // Rješavanje jednadžbe presjeka pravca s kuglom
         float a = 1;
-        float b = 2 * dot(normalize(velocity), vec3(camera_info.initPos));
-        float c = dot(vec3(camera_info.initPos),vec3(camera_info.initPos)) - atmosphere_info.planet_radius*atmosphere_info.planet_radius;
+        float b = 2 * dot(normalize(velocity), vec3(initPos));
+        float c = dot(vec3(initPos),vec3(initPos)) - atmosphere_info.planet_radius*atmosphere_info.planet_radius;
     
         // Determinanta
         float d = b*b - 4*a*c;
@@ -85,33 +84,44 @@ void main(){
         } 
     }
     
-   
-
 
 
     if (intersecting_planet){
-        
         // Èisto reprezentativan izraèun difuznog osvijetljenja površine planeta - linearno se skalira ovisno o sunèevom kutu (i radi samo pod pretpostavkom da je planet velik i približno ispod kamere)
         float sun_light = 0;
         if (atmosphere_info.sun_angle <= 180) {
             float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 180.0] -> [0.0 - 1.0]
-            tmp -= 0.5; // -> [-0.5 - 0.5]
-            tmp = -abs(tmp); // -> [-0.5 - 0 - -0.5]
-            tmp += 0.5; // -> [0 - 0.5 - 0]
+            tmp -= 0.5;          // -> [-0.5 - 0.5]
+            tmp = -abs(tmp);     // -> [-0.5 - 0 - -0.5]
+            tmp += 0.5;          // -> [0 - 0.5 - 0]
             sun_light = tmp * 2; // -> [0 - 1 - 0]
         }
 
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
+        return;
     }
-    else{ // Zrak
+    else{
+
+        // Provjera udara li zraka sunce
 
         // Sunce æe uvijek biti na xy ravnini
-        vec3 sun_vector = vec3(cos(radians(atmosphere_info.sun_angle)), sin(radians(atmosphere_info.sun_angle)),0); // Vektor sunca od kamere. Zbog ogromne udaljenosti, možemo pretpostaviti da je kamera u 0,0,0
-        float vector_angle = acos(dot(normalize(sun_vector),normalize(velocity))); // Razlika vektora piksela i vektora sunca u radijanima
+        vec3 sun_pos = vec3(cos(radians(atmosphere_info.sun_angle)), sin(radians(atmosphere_info.sun_angle)),0) * atmosphere_info.sun_distance;
+        
+        // Rješavanje jednadžbe presjeka pravca s kuglom - skoro jednaka kao za planet
+        vec3 Qpos = vec3(initPos) - vec3(sun_pos);
+        float a = 1;
+        float b = 2 * dot(normalize(velocity), Qpos);
+        float c = dot(Qpos,Qpos) - atmosphere_info.sun_radius*atmosphere_info.sun_radius;
+    
+        // Determinanta
+        float d = b*b - 4*a*c;
 
-        if (abs(tan(vector_angle)) < (atmosphere_info.sun_radius/atmosphere_info.sun_distance) && tan(vector_angle) < 0){ // Gledamo direktno u sunce
+        float sun_vector_dot = dot(normalize(vec3(sun_pos-initPos)),normalize(velocity));
+
+        if (d >= 0 && sun_vector_dot <= 0){ // Gledamo direktno u sunce
             imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
-        }
+            return;
+        } 
         else{
 
             
@@ -119,6 +129,7 @@ void main(){
 
 
             imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
+            return;
         }
 
        
