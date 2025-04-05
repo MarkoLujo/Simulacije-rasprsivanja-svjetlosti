@@ -675,8 +675,7 @@ void RenderEngine::handle_input(){
 		case (SDL_QUIT):
 		{
 			should_quit = true;
-			break;
-		}
+		} break;
 		case (SDL_KEYDOWN):
 		{
 			switch (e.key.keysym.sym)
@@ -698,21 +697,85 @@ void RenderEngine::handle_input(){
 				break;
 			}
 
+			switch (e.key.keysym.scancode)
+			{
+			case (SDL_SCANCODE_W):
+			{
+				main_camera_movement.v_z = -1;
+			} break;
+			case (SDL_SCANCODE_A):
+			{
+				main_camera_movement.v_x = 1;
+			} break;
+			case (SDL_SCANCODE_S):
+			{
+				main_camera_movement.v_z = 1;
+			} break;
+			case (SDL_SCANCODE_D):
+			{
+				main_camera_movement.v_x = -1;
+			} break;
+
+			case (SDL_SCANCODE_Q):
+			{
+				main_camera_movement.v_y = 1;
+			} break;
+			case (SDL_SCANCODE_E):
+			{
+				main_camera_movement.v_y = -1;
+			} break;
+
+			default:
+				break;
+			}
+
+
+
 			break;
 		}
 		case (SDL_KEYUP):
 		{
 
+			switch (e.key.keysym.scancode)
+			{
+			case (SDL_SCANCODE_W):
+			{
+				if (main_camera_movement.v_z == -1) main_camera_movement.v_z = 0;
+			} break;
+			case (SDL_SCANCODE_A):
+			{
+				if (main_camera_movement.v_x == 1) main_camera_movement.v_x = 0;
+			} break;
+			case (SDL_SCANCODE_S):
+			{
+				if (main_camera_movement.v_z == 1) main_camera_movement.v_z= 0;
+			} break;
+			case (SDL_SCANCODE_D):
+			{
+				if (main_camera_movement.v_x == -1) main_camera_movement.v_x = 0;
+			} break;
 
-			break;
-		}
+			case (SDL_SCANCODE_Q):
+			{
+				if (main_camera_movement.v_y == 1) main_camera_movement.v_y = 0;
+			} break;
+			case (SDL_SCANCODE_E):
+			{
+				if (main_camera_movement.v_y == -1) main_camera_movement.v_y = 0;
+			} break;
+
+			default:
+				break;
+			}
+			
+		} break;
 		case (SDL_MOUSEMOTION):
 		{
 			main_camera_movement.yaw += e.motion.xrel / 1000.0f;
 			main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
 
-			break;
-		}
+			
+		} break;
 		default:
 			break;
 		}
@@ -739,6 +802,11 @@ void RenderEngine::process_movement(){
 	main_camera.right = rotate_matrix[0];
 	main_camera.up = rotate_matrix[1];
 	main_camera.front = rotate_matrix[2];
+
+
+	main_camera.position += main_camera_movement.v_x * main_camera.right;
+	main_camera.position += main_camera_movement.v_y * main_camera.up;
+	main_camera.position += main_camera_movement.v_z * main_camera.front;
 }
 
 void RenderEngine::compute(){
@@ -801,8 +869,14 @@ void RenderEngine::compute(){
 	memcpy(data, &camera_input, sizeof(shader_input_buffer_1));
 	vmaUnmapMemory(_allocator, _frames[_current_frame]._camera_uniform_buffer._allocation);
 
+
+	shader_input_buffer_2 atmosphere_input;
+
+	atmosphere_input.sun = sun;
+	atmosphere_input.planet = main_planet;
+
 	vmaMapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation, &data);
-	memcpy(data, &sun, sizeof(shader_input_buffer_2));
+	memcpy(data, &atmosphere_input, sizeof(shader_input_buffer_2));
 	vmaUnmapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation);
 
 	// Postavljanje naredbenog spremnika

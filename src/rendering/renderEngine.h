@@ -17,6 +17,7 @@
 
 #include "camera.h"
 #include "../simulation/sun.h"
+#include "../simulation/atmosphere.h"
 
 #define VK_CHECK(x)														\
 	{																	\
@@ -101,16 +102,8 @@ struct shader_input_buffer_1 {
 };
 
 struct shader_input_buffer_2 {
-	glm::mat4 lookDir;
-
-	glm::vec4 initPos;
-	glm::vec4 initDir;
-
-	float xPosMultiplier;
-	float yPosMultiplier;
-
-	float xDirMultiplier;
-	float yDirMultiplier;
+	Sun sun;
+	Planet planet;
 
 };
 
@@ -213,8 +206,9 @@ public:
 	Camera main_camera;
 
 	struct Camera_movement{
-		float v_x = 0;
+		float v_x = 0; // Brzina kamere po svojoj lokalnoj x osi
 		float v_y = 0;
+		float v_z = 0;
 
 		float pitch = 0;
 		float yaw = 0;
@@ -223,6 +217,7 @@ public:
 	Camera_movement main_camera_movement;
 
 	Sun sun;
+	Planet main_planet;
 
 
 private:

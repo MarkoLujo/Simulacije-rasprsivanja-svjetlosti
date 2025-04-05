@@ -20,12 +20,29 @@ int main(int argc, char* argv){
 	main_engine._screen_size_y = 900;
 
 	main_engine.sun = Sun{
-		1.496f * powf(10, 8) * 1000, // Udaljenost
+		1.496f * powf(10, 8) * 1000, // Udaljenost (1.496 * 10^8 km)
 		1391400.0f * 1000, // Velièina
 
 		50.0f // Kut nagiba
-		
 	};
+
+	Atmosphere earth_atmosphere = Atmosphere{
+		101325, // Tlak na morskoj razini (u pa)
+		5600, // Poluopad tlaka (koliko metara u visinu je potrebno iæi da tlak padne na polovicu prijašnje vrijednosti)
+
+		100 * 1000 // Maksimalna razina
+	};
+
+	main_engine.main_planet = Planet{
+		6371 * 1000, // Radijus Zemlje je oko 6,371 km
+		earth_atmosphere
+	};
+
+	main_engine.main_camera.position = glm::vec3(
+		0,
+		main_engine.main_planet.radius + 10,
+		0
+	);
 
 	main_engine.init();
 

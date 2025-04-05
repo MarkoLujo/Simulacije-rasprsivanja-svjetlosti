@@ -18,10 +18,18 @@ layout(set = 0, binding = 0) uniform InputBuffer1 {
 
 
 layout(set = 0, binding = 1) uniform InputBuffer2 {
+    // Sunce
     float sun_distance;
     float sun_radius;
     float sun_angle;
 
+    // Planet
+    float planet_radius;
+
+    // Atmosfera
+    float atmosphere_surface_pressure_pa;
+	float atmosphere_half_distance;
+	float atmosphere_upper_limit;
 
 } atmosphere_info;
 
@@ -45,17 +53,52 @@ void main(){
     // Rotacija zrake zajedno s kamerom
     velocity = mat3(camera_info.lookDir) * velocity;
     
-    if (velocity.y > 0){ // Pod
+
+
+    // Centar planeta je središte koordinatnog sustava, tj. 0,0,0
+
+    vec4 floor_color = vec4(0.7,0.7,0.7,0);
+
+    if (length(camera_info.initPos) < atmosphere_info.planet_radius){ // Kamera je u planetu
+        imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color);
+        return;
+    }
+
+    bool intersecting_planet = false;
+
+
+    // Ukoliko se zraka približava planetu, presjek je moguæ
+
+    float planet_vector_dot = dot(normalize(vec3(-camera_info.initPos)),normalize(velocity)); // Skalarni umnožak vektora piksela i vektora kamere do planeta u radijanima
+    if (planet_vector_dot <= 0){ // Kut im je manji od 90
+
+        // Rješavanje jednadžbe presjeka pravca s kuglom
+        float a = 1;
+        float b = 2 * dot(normalize(velocity), vec3(camera_info.initPos));
+        float c = dot(vec3(camera_info.initPos),vec3(camera_info.initPos)) - atmosphere_info.planet_radius*atmosphere_info.planet_radius;
+    
+        // Determinanta
+        float d = b*b - 4*a*c;
+
+        if (d >= 0){ // Pravac ima presjek s planetom, buduæi da se zraka giba prema planetu presjek je na usmjerenom dijelu
+            intersecting_planet = true;
+        } 
+    }
+    
+   
+
+
+
+    if (intersecting_planet){
         
-        vec4 floor_color = vec4(0.7,0.7,0.7,0);
-        
+        // Èisto reprezentativan izraèun difuznog osvijetljenja površine planeta - linearno se skalira ovisno o sunèevom kutu (i radi samo pod pretpostavkom da je planet velik i približno ispod kamere)
         float sun_light = 0;
         if (atmosphere_info.sun_angle <= 180) {
-            float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 1.0]
-            tmp -= 0.5; // [-0.5 - 0.5]
-            tmp = -abs(tmp); // [-0.5 - 0 - -0.5]
-            tmp += 0.5; // [0 - 0.5 - 0]
-            sun_light = tmp * 2; // [0 - 1 - 0]
+            float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 180.0] -> [0.0 - 1.0]
+            tmp -= 0.5; // -> [-0.5 - 0.5]
+            tmp = -abs(tmp); // -> [-0.5 - 0 - -0.5]
+            tmp += 0.5; // -> [0 - 0.5 - 0]
+            sun_light = tmp * 2; // -> [0 - 1 - 0]
         }
 
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
@@ -70,6 +113,11 @@ void main(){
             imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
         }
         else{
+
+            
+
+
+
             imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
         }
 
