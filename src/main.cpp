@@ -44,6 +44,8 @@ int main(int argc, char* argv){
 		0
 	);
 
+	main_engine.sample_amount = 10;
+
 	main_engine.init();
 
 

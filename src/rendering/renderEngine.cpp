@@ -804,9 +804,9 @@ void RenderEngine::process_movement(){
 	main_camera.front = rotate_matrix[2];
 
 
-	main_camera.position += main_camera_movement.v_x * main_camera.right;
-	main_camera.position += main_camera_movement.v_y * main_camera.up;
-	main_camera.position += main_camera_movement.v_z * main_camera.front;
+	main_camera.position += 2000 * main_camera_movement.v_x * main_camera.right;
+	main_camera.position += 2000 * main_camera_movement.v_y * main_camera.up;
+	main_camera.position += 2000 * main_camera_movement.v_z * main_camera.front;
 }
 
 void RenderEngine::compute(){
@@ -862,6 +862,8 @@ void RenderEngine::compute(){
 
 	camera_input.xDirMultiplier = 1.0f/1000.0f;
 	camera_input.yDirMultiplier = 1.0f/1000.0f;
+
+	camera_input.sampleAmount = sample_amount;
 
 	// Prebacivanje uniformnih podataka na GPU
 	void* data;

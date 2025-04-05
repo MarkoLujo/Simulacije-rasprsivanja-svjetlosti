@@ -99,6 +99,7 @@ struct shader_input_buffer_1 {
 	float xDirMultiplier;
 	float yDirMultiplier;
 
+	float sampleAmount;
 };
 
 struct shader_input_buffer_2 {
@@ -219,6 +220,7 @@ public:
 	Sun sun;
 	Planet main_planet;
 
+	float sample_amount;
 
 private:
 	

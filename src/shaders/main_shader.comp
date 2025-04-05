@@ -14,6 +14,8 @@ layout(set = 0, binding = 0) uniform InputBuffer1 {
     float xDirMultiplier;
 	float yDirMultiplier;
 
+    float sampleAmount;
+
 } camera_info;
 
 
@@ -64,10 +66,11 @@ void main(){
     }
 
     bool intersecting_planet = false;
+    float planet_t_min = 0; // Toèke u kojima zraka presijeca planet;
+    float planet_t_max = 0; 
 
 
     // Ukoliko se zraka približava planetu, presjek je moguæ
-
     float planet_vector_dot = dot(normalize(vec3(-initPos)),normalize(velocity)); // Skalarni umnožak vektora piksela i poèetnog vektora pozicije zrake do planeta u radijanima
     if (planet_vector_dot <= 0){ // Kut im je manji od 90
 
@@ -82,13 +85,22 @@ void main(){
         if (d >= 0){ // Pravac ima presjek s planetom, buduæi da se zraka giba prema planetu presjek je na usmjerenom dijelu
             intersecting_planet = true;
         } 
+
+        float tmp_1 = (-b) / (2*a);
+        float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+
+        float t1 = -(tmp_1 + tmp_2);
+        float t2 = -(tmp_1 - tmp_2);
+                
+        planet_t_min = min(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
+        planet_t_max = max(t1,t2); 
     }
     
 
-
+    float sun_light = 0;
     if (intersecting_planet){
         // Èisto reprezentativan izraèun difuznog osvijetljenja površine planeta - linearno se skalira ovisno o sunèevom kutu (i radi samo pod pretpostavkom da je planet velik i približno ispod kamere)
-        float sun_light = 0;
+        
         if (atmosphere_info.sun_angle <= 180) {
             float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 180.0] -> [0.0 - 1.0]
             tmp -= 0.5;          // -> [-0.5 - 0.5]
@@ -98,9 +110,8 @@ void main(){
         }
 
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
-        return;
     }
-    else{
+    {
 
         // Provjera udara li zraka sunce
 
@@ -118,17 +129,76 @@ void main(){
 
         float sun_vector_dot = dot(normalize(vec3(sun_pos-initPos)),normalize(velocity));
 
-        if (d >= 0 && sun_vector_dot <= 0){ // Gledamo direktno u sunce
+        if (d >= 0 && sun_vector_dot <= 0 && !intersecting_planet){ // Gledamo direktno u sunce
             imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
             return;
         } 
         else{
+            
+            // Provjera presjeka s atmosferom planeta
+            
+            // Još jedna jednadžba kugle
+
+            float a = 1;
+            float b = 2 * dot(normalize(velocity), vec3(initPos));
+            float atmosphere_radius = atmosphere_info.planet_radius + atmosphere_info.atmosphere_upper_limit;
+            float c = dot(vec3(initPos),vec3(initPos)) - (atmosphere_radius)*(atmosphere_radius);
+            // Determinanta
+            float d = b*b - 4*a*c;
+
+            if (d > 0){ // Postoji presjek i dogaða se u više od 1 toèke
+                // Raèunanje rješenja
+
+                float tmp_1 = (-b) / (2*a);
+                float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+
+                float t1 = -(tmp_1 + tmp_2);
+                float t2 = -(tmp_1 - tmp_2);
+                
+                float t_max = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
+                float t_min = min(t1,t2);
+
+                if (t1 < 0 && t2 < 0){ // Oba presjecišta su iza smjera vektora, zraka ne sijeèe atmosferu
+                    imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                    return;
+                }
+
+                if (t_min < 0) t_min = 0; // Ako je prva toèka iza poèetka zrake stavi je na poèetak
+
+                if (intersecting_planet && t_max > planet_t_min) t_max = planet_t_min; // Ako zraka prolazi kroz planet ogranièi uzorke na atmosferu prije ulaska
+
+                vec4 output_color = vec4(0,0,0,0);
+                if (intersecting_planet) output_color = floor_color * sun_light * camera_info.sampleAmount;
+                vec4 atmo_color = vec4(1,0.5,0,0); 
+
+
+                // Uzimanje toèaka uzorka
+                for(int i = 1; i < camera_info.sampleAmount; i++){
+                    float t_smpl = (t_min * (1-(float(i)/camera_info.sampleAmount)) + t_max * (float(i)/camera_info.sampleAmount)); // Interpolacija
+                    
+                    vec3 t_pos = initPos - normalize(velocity) * t_smpl;
+
+
+                    float multiplier = 0;
+                    float distance_from_center = length(t_pos);
+                    if (distance_from_center >= atmosphere_info.planet_radius){ // Implicitno uvijek manje od atmosphere_info.planet_radius+atmosphere_info.atmosphere_upper_limit
+                        multiplier = 1 - (distance_from_center - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_upper_limit; // Lerp
+                    }
+
+                    output_color += atmo_color * multiplier;
+                }
+
+                output_color /= camera_info.sampleAmount;
+
+                imageStore(outputPixels, ivec2(gIDx, gIDy), output_color); 
+                return;
+            }
+            else{
+                imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                return;
+            }
 
             
-
-
-
-            imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(normalize(velocity).z,1.0,abs(normalize(velocity).y),0));
             return;
         }
 
