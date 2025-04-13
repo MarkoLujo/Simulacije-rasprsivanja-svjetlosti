@@ -33,6 +33,12 @@ layout(set = 0, binding = 1) uniform InputBuffer2 {
 	float atmosphere_half_distance;
 	float atmosphere_upper_limit;
 
+    float atmosphere_temperature;
+	float atmosphere_molar_mass;
+
+	float atmosphere_refractivity;
+    float atmosphere_atom_radius;
+
 } atmosphere_info;
 
 layout(set = 0, binding = 2, rgba8) uniform image2D outputPixels;
@@ -110,10 +116,13 @@ void main(){
         }
 
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
+        return;
     }
     {
 
         // Provjera udara li zraka sunce
+
+        bool looking_at_sun = false;
 
         // Sunce æe uvijek biti na xy ravnini
         vec3 sun_pos = vec3(cos(radians(atmosphere_info.sun_angle)), sin(radians(atmosphere_info.sun_angle)),0) * atmosphere_info.sun_distance;
@@ -128,12 +137,13 @@ void main(){
         float d = b*b - 4*a*c;
 
         float sun_vector_dot = dot(normalize(vec3(sun_pos-initPos)),normalize(velocity));
-
+        
         if (d >= 0 && sun_vector_dot <= 0 && !intersecting_planet){ // Gledamo direktno u sunce
-            imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
-            return;
+            looking_at_sun = true;
         } 
-        else{
+
+
+        {
             
             // Provjera presjeka s atmosferom planeta
             
@@ -159,7 +169,12 @@ void main(){
                 float t_min = min(t1,t2);
 
                 if (t1 < 0 && t2 < 0){ // Oba presjecišta su iza smjera vektora, zraka ne sijeèe atmosferu
-                    imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                    if (looking_at_sun){
+                        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
+                    }
+                    else{
+                        imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                    }
                     return;
                 }
 
@@ -168,33 +183,172 @@ void main(){
                 if (intersecting_planet && t_max > planet_t_min) t_max = planet_t_min; // Ako zraka prolazi kroz planet ogranièi uzorke na atmosferu prije ulaska
 
                 vec4 output_color = vec4(0,0,0,0);
-                if (intersecting_planet) output_color = floor_color * sun_light * camera_info.sampleAmount;
-                vec4 atmo_color = vec4(1,0.5,0,0); 
+                //if (intersecting_planet) output_color = floor_color * sun_light * camera_info.sampleAmount;
+                
+                
+                vec3 red_wave_color   = vec3(1.0,0.0,0.0);
+                vec3 green_wave_color = vec3(0.0,1.0,0.0);
+                vec3 blue_wave_color  = vec3(0.0,0.0,1.0);
+
+                double red_wavelenght   = 630 * 0.000000001; // nanometri
+                double green_wavelenght = 525 * 0.000000001;
+                double blue_wavelenght  = 440 * 0.000000001;
+
 
 
                 // Uzimanje toèaka uzorka
                 for(int i = 1; i < camera_info.sampleAmount; i++){
+                    
+                    // Pozicija toèke uzorka na liniji
                     float t_smpl = (t_min * (1-(float(i)/camera_info.sampleAmount)) + t_max * (float(i)/camera_info.sampleAmount)); // Interpolacija
                     
+                    // Pozicija toèke uzorka u prostoru
                     vec3 t_pos = initPos - normalize(velocity) * t_smpl;
 
 
                     float multiplier = 0;
                     float distance_from_center = length(t_pos);
-                    if (distance_from_center >= atmosphere_info.planet_radius){ // Implicitno uvijek manje od atmosphere_info.planet_radius+atmosphere_info.atmosphere_upper_limit
-                        multiplier = 1 - (distance_from_center - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_upper_limit; // Lerp
+
+                    float distance_from_surface = distance_from_center - atmosphere_info.planet_radius;
+
+                    vec3 ray_light = vec3(0,0,0);
+
+                    if (looking_at_sun) ray_light = vec3(1,1,1);
+
+                    // Trebat æe uskoro
+                    double pi = 3.141592654;
+                    double atmosphere_atom_size = 2 * pi * atmosphere_info.atmosphere_atom_radius;
+                    float local_pressure = atmosphere_info.atmosphere_surface_pressure_pa * pow(0.5f, distance_from_surface/atmosphere_info.atmosphere_half_distance); // Ekvivalentno formuli poluraspada
+                    float air_density = local_pressure/(atmosphere_info.atmosphere_temperature * (8.3144621 /*plinska konstanta*/  / atmosphere_info.atmosphere_molar_mass));
+
+
+                    // In-scattering - koliko svjetlosti dolazi se dobije raspršivanjem sunèevih zraka
+                    {
+                        // Vektor od toèke prema suncu
+                        vec3 ray_sun_vector = sun_pos - t_pos;
+
+                        // Traži se presjek zrake s atmosferom
+                    
+                        // Finalna jednadžba kugle pls
+                        float a = 1;
+                        float b = 2 * dot(normalize(ray_sun_vector), vec3(t_pos));
+                        float c = dot(vec3(t_pos),vec3(t_pos)) - (atmosphere_radius)*(atmosphere_radius);
+                        // Determinanta
+                        float d = b*b - 4*a*c;
+                        if (d > 0){ // Jedini put kada ovo ne bi trebalo vrijediti je na samom rubu atmosfere u nekim rijetkim sluèajevima
+                            // Raèunanje rješenja
+
+                            float tmp_1 = (-b) / (2*a);
+                            float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+
+                            float t1 = -(tmp_1 + tmp_2);
+                            float t2 = -(tmp_1 - tmp_2);
+                
+                            float t_max = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
+                            float t_min = min(t1,t2);
+
+                            // Bitan je samo t_max ovdje
+
+                            // Dosta gruba aproksimacija - uzima se pozicija toèke i broje se molekule zraka unutar kocke duljine (udaljenosti toèke od ruba atmosfere)/2
+
+                            float counting_cube_len = t_max;
+
+                            float volume_lenght = counting_cube_len;
+
+                            // Konstantan dio jednadžbe koji ne ovisi o valnoj duljini, treba se podijeliti s valnom duljinom na 4 potenciju
+                            // Razdvajanje zbog floating point gluposti
+                            double rayleigh_cross_section_const_1 = (8*pi*(16*pi*pi*pi*pi)/3); // Velik
+                            double rayleigh_cross_section_const_2 = ((atmosphere_info.atmosphere_refractivity*atmosphere_info.atmosphere_refractivity-1)/(atmosphere_info.atmosphere_refractivity*atmosphere_info.atmosphere_refractivity+2)); // Malen
+                       
+                            double rayleigh_cross_section_const_3 = (atmosphere_atom_size*atmosphere_atom_size); // Ultramalen - daje 0 u punom obliku
+
+                            double rayleigh_cross_section_const = rayleigh_cross_section_const_1 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_3;
+
+                            double rayleigh_cross_section_red   = rayleigh_cross_section_const / ((red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+                            double rayleigh_cross_section_green = rayleigh_cross_section_const / ((green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+                            double rayleigh_cross_section_blue  = rayleigh_cross_section_const / ((blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+
+                            float air_mass = air_density/2 * (1*1*1);
+                            float num_air_particles = (air_mass / atmosphere_info.atmosphere_molar_mass) * 6.02214076 * pow(10,23); /*Avogadrova konstanta*/
+
+                            double rayleigh_scatter_multiplier_red   = rayleigh_cross_section_red   * num_air_particles * volume_lenght; // Koliko se ova valna duljina rasprši putujuæi duljinom kocke
+                            double rayleigh_scatter_multiplier_green = rayleigh_cross_section_green * num_air_particles * volume_lenght;
+                            double rayleigh_scatter_multiplier_blue  = rayleigh_cross_section_blue  * num_air_particles * volume_lenght;
+
+                            // Množenje s kutom
+
+                            float sun_angle = acos(dot(normalize(ray_sun_vector), normalize(velocity)));
+
+                            double angle_const = 3.0/2.0 * (1 + cos(sun_angle) * cos(sun_angle));
+
+                            rayleigh_scatter_multiplier_red   *= angle_const;
+                            rayleigh_scatter_multiplier_green *= angle_const;
+                            rayleigh_scatter_multiplier_blue  *= angle_const;
+
+                            ray_light += vec3(float(rayleigh_scatter_multiplier_red),float(rayleigh_scatter_multiplier_green), float(rayleigh_scatter_multiplier_blue));
+
+                        }
+                     
                     }
 
-                    output_color += atmo_color * multiplier;
+
+                    // Out-scattering - koliko svjetlosti se izgubi raspršivanjem pri putovanju prema kameri
+                    // Ne ovisi o kutu upada zrake
+                    {
+                        // Raèunanje Rayleighovog presjeka do sljedeæe toèke
+                        
+                        
+                        float volume_lenght = (t_max-t_min)/(camera_info.sampleAmount-1);
+
+                        float air_mass = air_density * (1*1*1);
+                        float num_air_particles = (air_mass / atmosphere_info.atmosphere_molar_mass) * 6.02214076 * pow(10,23); /*Avogadrova konstanta*/
+                    
+                        double rayleigh_scatter_multiplier_red   = 0;
+                        double rayleigh_scatter_multiplier_green = 0;
+                        double rayleigh_scatter_multiplier_blue  = 0;
+
+                        // Konstantan dio jednadžbe koji ne ovisi o valnoj duljini, treba se podijeliti s valnom duljinom na 4 potenciju
+
+
+                        // Razdvajanje zbog floating point gluposti
+                        double rayleigh_cross_section_const_1 = (8*pi*(16*pi*pi*pi*pi)/3); // Velik
+                        double rayleigh_cross_section_const_2 = ((atmosphere_info.atmosphere_refractivity*atmosphere_info.atmosphere_refractivity-1)/(atmosphere_info.atmosphere_refractivity*atmosphere_info.atmosphere_refractivity+2)); // Malen
+                       
+                        double rayleigh_cross_section_const_3 = (atmosphere_atom_size*atmosphere_atom_size); // Ultramalen - daje 0 u punom obliku
+
+                        double rayleigh_cross_section_const = rayleigh_cross_section_const_1 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_3;
+
+                        double rayleigh_cross_section_red   = rayleigh_cross_section_const / ((red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+                        double rayleigh_cross_section_green = rayleigh_cross_section_const / ((green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+                        double rayleigh_cross_section_blue  = rayleigh_cross_section_const / ((blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght) / rayleigh_cross_section_const_3) * rayleigh_cross_section_const_3;
+                       
+                        rayleigh_scatter_multiplier_red   = 4 * pi * rayleigh_cross_section_red   * num_air_particles  * volume_lenght; // Koliko se ova valna duljina rasprši putujuæi duljinom do sljedeæe toèke uzorka
+                        rayleigh_scatter_multiplier_green = 4 * pi * rayleigh_cross_section_green * num_air_particles  * volume_lenght;
+                        rayleigh_scatter_multiplier_blue  = 4 * pi * rayleigh_cross_section_blue  * num_air_particles  * volume_lenght;
+                        
+
+                        ray_light *= vec3(1-float(rayleigh_scatter_multiplier_red), 1-float(rayleigh_scatter_multiplier_green), 1-float(rayleigh_scatter_multiplier_blue));
+                    }
+
+                    vec3 total_light = ray_light.r * red_wave_color + ray_light.g * green_wave_color + ray_light.b * blue_wave_color;
+
+                    output_color += vec4(total_light,1);
                 }
 
-                output_color /= camera_info.sampleAmount;
+                output_color /= (camera_info.sampleAmount-1);
 
-                imageStore(outputPixels, ivec2(gIDx, gIDy), output_color); 
+                vec4 output_color_formatted = vec4(output_color.b, output_color.g, output_color.r, 0); 
+                imageStore(outputPixels, ivec2(gIDx, gIDy), output_color_formatted); 
                 return;
             }
             else{
-                imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                if (looking_at_sun){
+                    imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(1,1,1,0));
+                }
+                else{
+                    imageStore(outputPixels, ivec2(gIDx, gIDy), vec4(0,0,0,0));
+                }
+                
                 return;
             }
 

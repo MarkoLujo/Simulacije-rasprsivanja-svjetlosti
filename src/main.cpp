@@ -30,8 +30,32 @@ int main(int argc, char* argv){
 		101325, // Tlak na morskoj razini (u pa)
 		5600, // Poluopad tlaka (koliko metara u visinu je potrebno iæi da tlak padne na polovicu prijašnje vrijednosti)
 
-		100 * 1000 // Maksimalna razina
+		100 * 1000, // Maksimalna razina
+
+		270, // Aproksimacija da je cijela atmosfera na -3 Celzijeva stupnja
+		0.0289652, // Približna molarna masa zraka (u kg/mol)
+		1.0002793, // Refraktivni indeks
+		364 * powf(10, -12) // Kinetièki radijus atoma dušika
 	};
+
+
+	double pi = 3.141592654;
+	// Konstantan dio jednadžbe koji ne ovisi o valnoj duljini, treba se podijeliti s valnom duljinom na 4 potenciju
+	double t1 = (8*pi*(16*pi*pi*pi*pi)/3);
+	double t2 = ((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2));
+	double atom_size = 2 * pi * earth_atmosphere.atom_radius;
+	double t3 = (atom_size*atom_size);
+
+	double rayleigh_cross_section_const_2 = t1 * t2 * t2 * t3 * t3 * t3;
+
+	double rayleigh_cross_section_red = rayleigh_cross_section_const_2 / ((532 * 0.000000001   * 532 * 0.000000001   * 532 * 0.000000001   * 532 * 0.000000001));
+
+
+	double rayleigh_cross_section_const = (8*pi*(16*pi*pi*pi*pi)/3) * 
+		((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2)) *
+		((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2)) *
+		(earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius);
+
 
 	main_engine.main_planet = Planet{
 		6371 * 1000, // Radijus Zemlje je oko 6,371 km
