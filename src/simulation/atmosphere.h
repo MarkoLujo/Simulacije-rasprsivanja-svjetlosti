@@ -1,8 +1,6 @@
-
-
 struct Atmosphere{
 	float surface_pressure_pa;
-	float half_distance; // Pri usponu od ovoliko metara tlak se prepolovi
+	float average_density_height; // Na ovoj visini se nalazi prosjeèna gustoæa atmosfere
 
 	float upper_limit;
 

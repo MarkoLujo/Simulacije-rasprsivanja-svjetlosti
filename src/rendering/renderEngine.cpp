@@ -73,6 +73,8 @@ void RenderEngine::init_vulkan(){
 	descriptorFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
 	descriptorFeatures.pNext = nullptr;
 
+	VkPhysicalDeviceFeatures deviceFeatures{};
+	deviceFeatures.shaderFloat64 = VK_TRUE;
 
 	// Biranje grafièkog procesora
 	vkb::PhysicalDeviceSelector selector{ vkb_instance };
@@ -80,6 +82,7 @@ void RenderEngine::init_vulkan(){
 		.add_required_extension("VK_KHR_swapchain")
 		.add_required_extension("VK_EXT_descriptor_indexing")
 		.add_required_extension_features<VkPhysicalDeviceDescriptorIndexingFeatures>(descriptorFeatures)
+		.set_required_features(deviceFeatures)
 		.set_minimum_version(1, 1)
 		.set_surface(_window_surface)
 		.select()
@@ -876,6 +879,7 @@ void RenderEngine::compute(){
 
 	atmosphere_input.sun = sun;
 	atmosphere_input.planet = main_planet;
+	atmosphere_input.K = K;
 
 	vmaMapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation, &data);
 	memcpy(data, &atmosphere_input, sizeof(shader_input_buffer_2));

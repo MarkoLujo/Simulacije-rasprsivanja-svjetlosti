@@ -28,7 +28,7 @@ int main(int argc, char* argv){
 
 	Atmosphere earth_atmosphere = Atmosphere{
 		101325, // Tlak na morskoj razini (u pa)
-		5600, // Poluopad tlaka (koliko metara u visinu je potrebno iæi da tlak padne na polovicu prijašnje vrijednosti)
+		8700, // Visina na kojoj se nalazi prosjeèna gustoæa atmosfere
 
 		100 * 1000, // Maksimalna razina
 
@@ -37,24 +37,6 @@ int main(int argc, char* argv){
 		1.0002793, // Refraktivni indeks
 		364 * powf(10, -12) // Kinetièki radijus atoma dušika
 	};
-
-
-	double pi = 3.141592654;
-	// Konstantan dio jednadžbe koji ne ovisi o valnoj duljini, treba se podijeliti s valnom duljinom na 4 potenciju
-	double t1 = (8*pi*(16*pi*pi*pi*pi)/3);
-	double t2 = ((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2));
-	double atom_size = 2 * pi * earth_atmosphere.atom_radius;
-	double t3 = (atom_size*atom_size);
-
-	double rayleigh_cross_section_const_2 = t1 * t2 * t2 * t3 * t3 * t3;
-
-	double rayleigh_cross_section_red = rayleigh_cross_section_const_2 / ((532 * 0.000000001   * 532 * 0.000000001   * 532 * 0.000000001   * 532 * 0.000000001));
-
-
-	double rayleigh_cross_section_const = (8*pi*(16*pi*pi*pi*pi)/3) * 
-		((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2)) *
-		((earth_atmosphere.refractivity*earth_atmosphere.refractivity-1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity+2)) *
-		(earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius*earth_atmosphere.atom_radius);
 
 
 	main_engine.main_planet = Planet{
@@ -67,6 +49,53 @@ int main(int argc, char* argv){
 		main_engine.main_planet.radius + 10,
 		0
 	);
+
+
+	// Raèunanje konstanti Rayleighove jednadžbe
+
+	double pi = 3.141592654;
+
+	// Kolièina molekula po kubnom metru na površini
+	double surface_density = earth_atmosphere.surface_pressure_pa /(earth_atmosphere.temperature * (8.3144621 /*plinska konstanta*/  / earth_atmosphere.molar_mass));
+	double surface_mass = surface_density * (1*1*1);
+	double num_air_particles_2 = (surface_mass / earth_atmosphere.molar_mass)  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
+	double surface_molecule_density = num_air_particles_2 / (1*1*1);
+
+	double K = 2 * pi * pi * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) / surface_molecule_density;
+
+
+	// Raèunanje Rayleighovog optièkog presjeka atmosfere
+
+	double red_wavelenght   = 630 * 0.000000001; // nanometri
+	double green_wavelenght = 525 * 0.000000001;
+	double blue_wavelenght  = 440 * 0.000000001;
+
+	/*
+	double atmosphere_atom_size = 2 * pi * earth_atmosphere.atom_radius;
+
+	// Konstantan dio jednadžbe koji ne ovisi o valnoj duljini, treba se podijeliti s valnom duljinom na 4 potenciju
+	// Razdvajanje zbog floating point gluposti
+	double rayleigh_cross_section_const_1 = ((16*pi*pi*pi*pi)/3); // Velik
+	double rayleigh_cross_section_const_2 = ((earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1)/(earth_atmosphere.refractivity*earth_atmosphere.refractivity +2)); // Malen
+
+	double rayleigh_cross_section_const_3 = ((atmosphere_atom_size*atmosphere_atom_size) * (6.02214076 * pow(10,23))) * ((atmosphere_atom_size*atmosphere_atom_size) * ((atmosphere_atom_size*atmosphere_atom_size))); // Ultramalen èak i kad je pomnožen s Avogadrovom konstantom
+
+	double rayleigh_cross_section_const = rayleigh_cross_section_const_1 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_2 * rayleigh_cross_section_const_3;
+
+
+	// Konstantan dio jednadžbe koji ne ovisi o gustoæi atmosfere
+	// "Optièki presjek" - što je valna duljina svjetla manja, to je ovo veæe pa se više raspršuje
+	double rayleigh_cross_section_red   = rayleigh_cross_section_const / ((red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght));
+	double rayleigh_cross_section_green = rayleigh_cross_section_const / ((green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght));
+	double rayleigh_cross_section_blue  = rayleigh_cross_section_const / ((blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght));
+
+
+	main_engine.rayleigh_cross_section_red_Av = rayleigh_cross_section_red;
+	main_engine.rayleigh_cross_section_green_Av = rayleigh_cross_section_green;
+	main_engine.rayleigh_cross_section_blue_Av = rayleigh_cross_section_blue;
+	*/
+
+	main_engine.K = K;
 
 	main_engine.sample_amount = 10;
 

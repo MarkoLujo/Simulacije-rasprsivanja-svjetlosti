@@ -102,12 +102,17 @@ struct shader_input_buffer_1 {
 	float sampleAmount;
 };
 
+
 struct shader_input_buffer_2 {
 	Sun sun;
 	Planet planet;
 
-};
+	// Dodano da se ne mora raèunati za svaki piksel svaki prikaz
+	double K;
 
+	// Optièki presjek puta Avogadrova konstanta (6.02214076 * pow(10,23)). Zbog gubitka preciznosti (jer Rayleighova jednadžba sadrži množenje jako malog presjeka s jako velikim brojem èestica),
+	// ovi presjeci su veæ pomnoženi s konstantom te je taj korak izostavljen u sjenèaru. 
+};
 
 
 
@@ -219,6 +224,8 @@ public:
 
 	Sun sun;
 	Planet main_planet;
+	double K;
+
 
 	float sample_amount;
 
