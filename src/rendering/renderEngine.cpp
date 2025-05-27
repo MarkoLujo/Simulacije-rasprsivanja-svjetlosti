@@ -708,7 +708,7 @@ void RenderEngine::handle_input(){
 			} break;
 			case (SDL_SCANCODE_A):
 			{
-				main_camera_movement.v_x = 1;
+				main_camera_movement.v_x = -1;
 			} break;
 			case (SDL_SCANCODE_S):
 			{
@@ -716,7 +716,7 @@ void RenderEngine::handle_input(){
 			} break;
 			case (SDL_SCANCODE_D):
 			{
-				main_camera_movement.v_x = -1;
+				main_camera_movement.v_x = 1;
 			} break;
 
 			case (SDL_SCANCODE_Q):
@@ -747,7 +747,7 @@ void RenderEngine::handle_input(){
 			} break;
 			case (SDL_SCANCODE_A):
 			{
-				if (main_camera_movement.v_x == 1) main_camera_movement.v_x = 0;
+				if (main_camera_movement.v_x == -1) main_camera_movement.v_x = 0;
 			} break;
 			case (SDL_SCANCODE_S):
 			{
@@ -755,7 +755,7 @@ void RenderEngine::handle_input(){
 			} break;
 			case (SDL_SCANCODE_D):
 			{
-				if (main_camera_movement.v_x == -1) main_camera_movement.v_x = 0;
+				if (main_camera_movement.v_x == 1) main_camera_movement.v_x = 0;
 			} break;
 
 			case (SDL_SCANCODE_Q):
@@ -774,8 +774,8 @@ void RenderEngine::handle_input(){
 		} break;
 		case (SDL_MOUSEMOTION):
 		{
-			main_camera_movement.yaw += e.motion.xrel / 1000.0f;
-			main_camera_movement.pitch += e.motion.yrel / 1000.0f;
+			main_camera_movement.yaw -= e.motion.xrel / 1000.0f;
+			main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
 
 			
 		} break;
@@ -858,7 +858,7 @@ void RenderEngine::compute(){
 	
 	
 	camera_input.initPos = glm::vec4(main_camera.position,0);
-	camera_input.initDir = glm::vec4(0.0f, 0.0f, 0.51f, 0); // Kamera uvijek gleda relativno ispred sebe
+	camera_input.initDir = glm::vec4(0.0f, 0.0f, -0.51f, 0); // Kamera uvijek gleda relativno ispred sebe 
 
 	camera_input.xPosMultiplier = 0;
 	camera_input.yPosMultiplier = 0;
