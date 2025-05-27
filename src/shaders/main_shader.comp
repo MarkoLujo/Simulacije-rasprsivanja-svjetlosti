@@ -47,6 +47,22 @@ layout(set = 0, binding = 1) uniform InputBuffer2 {
 layout(set = 0, binding = 2, rgba8) uniform image2D outputPixels;
 
 
+// Raèunanje integrala
+float outScatter_partial(vec3 start, vec3 end){
+    float result = 0;
+
+    for(int j = 0; j < camera_info.sampleAmount; j++){
+        // Pozicija toèke uzorka na liniji
+        vec3 pos = (start * (1-(float(j)/(camera_info.sampleAmount-1))) + end * (float(j)/(camera_info.sampleAmount-1))); // Interpolacija
+
+        float distance_from_center = length(pos);
+        float distance_from_surface = distance_from_center - atmosphere_info.planet_radius;
+                                    
+        result += exp(-distance_from_surface/atmosphere_info.atmosphere_average_distance) * length(end - start)/camera_info.sampleAmount;
+    }
+
+    return result;
+}
 
 
 
@@ -58,17 +74,24 @@ void main(){
     uint gID = gIDx + gIDy * imageSize(outputPixels).x;
 
     // Raèunanje pozicije i smjera zrake na temelju pozicije kamere i njezinoj širini pogleda (izraženom kao faktor nagiba)
-    vec3 initPos  = mat3(camera_info.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xPosMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yPosMultiplier, 0.0) + camera_info.initPos.xyz;
-    vec3 velocity =                             vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xDirMultiplier, (float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yDirMultiplier, 0.0) + camera_info.initDir.xyz;
+
+    // TEKSTURA: DESNO JE +X, DOLJE JE +Y
+    // RAÈUNANJE: DESNO JE +X, DOLJE JE -Y
+    // OBRNI Y
+    vec3 initPos  = mat3(camera_info.lookDir) * vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xPosMultiplier, /*OVAJ MINUS JE NAJBITNIJI DIO KODA ->*/-(float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yPosMultiplier, 0.0) + camera_info.initPos.xyz;
+    vec3 velocity =                             vec3((float(gIDx) - imageSize(outputPixels).x/2.0)*camera_info.xDirMultiplier, /*                      (OVAJ ISTO) ->*/-(float(gIDy) - imageSize(outputPixels).y/2.0)*camera_info.yDirMultiplier, 0.0) + camera_info.initDir.xyz;
+
 
     // Rotacija zrake zajedno s kamerom
-    velocity = mat3(camera_info.lookDir) * velocity;
+    vec4 velocity_2 = camera_info.lookDir * vec4(velocity,1.0);
+    velocity = vec3(velocity_2 / velocity_2.w);
     
+
 
     // Rani završetak ako je zraka u planetu
 
     // Centar planeta je središte koordinatnog sustava, tj. 0,0,0
-    vec4 floor_color = vec4(0.7,0.7,0.7,0);
+    vec4 floor_color = vec4(0.1,0.1,0.1,0);
     if (length(initPos) < atmosphere_info.planet_radius){ // Zraka je u planetu
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color);
         return;
@@ -80,8 +103,8 @@ void main(){
 
 
     // Ukoliko se zraka približava planetu, presjek je moguæ
-    float planet_vector_dot = dot(normalize(vec3(-initPos)),normalize(velocity)); // Skalarni umnožak vektora piksela i poèetnog vektora pozicije zrake do planeta u radijanima
-    if (planet_vector_dot <= 0){ // Kut im je manji od 90
+    float planet_vector_dot = dot(normalize(vec3(0-initPos)), normalize(velocity)); // Skalarni umnožak vektora piksela i poèetnog vektora pozicije zrake do planeta u radijanima
+    if (planet_vector_dot >= 0){ // Kut im je manji od 90
 
         // Rješavanje jednadžbe presjeka pravca s kuglom
         float a = 1;
@@ -95,11 +118,11 @@ void main(){
             intersecting_planet = true;
         } 
 
-        float tmp_1 = (-b) / (2*a);
-        float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+        float tmp_1 = (-b);
+        float tmp_2 = sqrt(b*b - 4*a*c);
 
-        float t1 = -(tmp_1 + tmp_2);
-        float t2 = -(tmp_1 - tmp_2);
+        float t1 = (tmp_1 + tmp_2) / (2*a);
+        float t2 = (tmp_1 - tmp_2) / (2*a);
                 
         planet_t_min = min(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
         planet_t_max = max(t1,t2); 
@@ -107,6 +130,7 @@ void main(){
     
 
     float sun_light = 0;
+    vec3 floor_reflect = vec3(0,0,0);
     if (intersecting_planet){
         // Èisto reprezentativan izraèun difuznog osvijetljenja površine planeta - linearno se skalira ovisno o sunèevom kutu (i radi samo pod pretpostavkom da je planet velik i približno ispod kamere)
         
@@ -118,9 +142,12 @@ void main(){
             sun_light = tmp * 2; // -> [0 - 1 - 0]
         }
 
+        floor_reflect = vec3(floor_color);
+
         imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
         return;
     }
+
     {
 
         // Provjera udara li zraka sunce
@@ -141,7 +168,7 @@ void main(){
 
         float sun_vector_dot = dot(normalize(vec3(sun_pos-initPos)),normalize(velocity));
         
-        if (d >= 0 && sun_vector_dot <= 0 && !intersecting_planet){ // Gledamo direktno u sunce
+        if (d >= 0 && sun_vector_dot >= 0 && !intersecting_planet){ // Gledamo direktno u sunce
             looking_at_sun = true;
         } 
 
@@ -161,11 +188,11 @@ void main(){
             if (d > 0){ // Postoji presjek i dogaða se u više od 1 toèke
                 // Raèunanje rješenja
 
-                float tmp_1 = (-b) / (2*a);
-                float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+                float tmp_1 = (-b);
+                float tmp_2 = sqrt(b*b - 4*a*c);
 
-                float t1 = -(tmp_1 + tmp_2);
-                float t2 = -(tmp_1 - tmp_2);
+                float t1 = (tmp_1 + tmp_2) / (2*a);
+                float t2 = (tmp_1 - tmp_2) / (2*a);
                 
                 float t_max = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
                 float t_min = min(t1,t2);
@@ -182,7 +209,9 @@ void main(){
 
                 if (t_min < 0) t_min = 0; // Ako je prva toèka iza poèetka zrake stavi je na poèetak
 
-                if (intersecting_planet && t_max > planet_t_min) t_max = planet_t_min; // Ako zraka prolazi kroz planet ogranièi uzorke na atmosferu prije ulaska
+                bool planet_reflection = false;
+                if (intersecting_planet && t_max > planet_t_min) planet_reflection = true;
+                if (planet_reflection) t_max = planet_t_min; // Ako zraka prolazi kroz planet ogranièi uzorke na atmosferu prije ulaska
 
                 vec4 output_color = vec4(0,0,0,0);
                 //if (intersecting_planet) output_color = floor_color * sun_light * camera_info.sampleAmount;
@@ -195,7 +224,7 @@ void main(){
                 
                 // Poèetna (upadna) zraka sunca
 
-                vec3 starting_ray_light = vec3(10,10,10);
+                vec3 starting_ray_light = vec3(50,50,50);
 
                 // Ukupno svjetlo koje kamera dobiva
                 vec3 total_light = vec3(0,0,0);
@@ -216,8 +245,9 @@ void main(){
                     // Pozicija toèke uzorka na liniji
                     float t_smpl = (t_min * (1-(float(i)/(camera_info.sampleAmount-1))) + t_max * (float(i)/(camera_info.sampleAmount-1))); // Interpolacija
                     
+
                     // Pozicija toèke uzorka u prostoru
-                    vec3 t_pos = initPos - normalize(velocity) * t_smpl;
+                    vec3 t_pos = initPos + normalize(velocity) * t_smpl;
 
                     float distance_from_center = length(t_pos);
 
@@ -239,23 +269,25 @@ void main(){
                     bool hit_surface = false;
 
                     if (d >= 0){ // Postoji presjek
-                        float tmp_1 = (-b) / (2*a);
-                        float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+                        float tmp_1 = (-b);
+                        float tmp_2 = sqrt(b*b - 4*a*c);
 
-                        float t1 = -(tmp_1 + tmp_2);
-                        float t2 = -(tmp_1 - tmp_2);
+                        float t1 = (tmp_1 + tmp_2) / (2*a);
+                        float t2 = (tmp_1 - tmp_2) / (2*a);
                 
                         float t_max_tmp = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
                         float t_min_tmp = min(t1,t2);
 
-                        if (t_max_tmp <= 0){ // Veæe presjecište je ispred zrake
+                        if (t_max_tmp > 0){ // Veæe presjecište je ispred zrake
                             hit_surface = true;
                         }
                     }
 
                     // Kolièina svjetla koje doðe do toèke gledanja
                     vec3 in_scatter_light = vec3(0,0,0);
-                    if (looking_at_sun) in_scatter_light = starting_ray_light;
+                    if (looking_at_sun) in_scatter_light += starting_ray_light;
+                    // Zadnjoj toèci uzorka se dodaje difuzno odbijanje od površine planeta 
+                    //if (planet_reflection && i==camera_info.sampleAmount-1) total_light += floor_reflect * dot(normalize(ray_sun_vector), normalize(t_pos));
 
                     if (!hit_surface){ 
 
@@ -272,11 +304,11 @@ void main(){
                             if (d > 0){ // Jedini put kada ovo ne bi trebalo vrijediti je na samom rubu atmosfere u nekim rijetkim sluèajevima
                                 // Raèunanje rješenja
 
-                                float tmp_1 = (-b) / (2*a);
-                                float tmp_2 = sqrt(b*b - 4*a*c) / (2*a);
+                                float tmp_1 = (-b);
+                                float tmp_2 = sqrt(b*b - 4*a*c);
 
-                                float t1 = -(tmp_1 + tmp_2);
-                                float t2 = -(tmp_1 - tmp_2);
+                                float t1 = (tmp_1 + tmp_2) / (2*a);
+                                float t2 = (tmp_1 - tmp_2) / (2*a);
 
                                 // Bitan je samo t_max ovdje
                                 float t_max_2 = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
@@ -289,20 +321,9 @@ void main(){
                                 // Drugi set uzroènih toèaka - sada na zraci prema suncu
                                 // Odreðuje se srednja gustoæa zraka na putu
 
-                                float average_density_ratio = 0;
+                                float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
 
-                                for(int j = 0; j < camera_info.sampleAmount; j++){
-                                    // Pozicija toèke uzorka na liniji
-                                    float t_smpl_2 = (0 * (1-(float(j)/(camera_info.sampleAmount-1))) + t_max_2 * (float(j)/(camera_info.sampleAmount-1))); // Interpolacija
-                    
-                                    // Pozicija druge toèke uzorka u prostoru
-                                    vec3 t_pos_2 = t_pos + normalize(ray_sun_vector) * t_smpl_2;
 
-                                    float distance_from_center_2 = length(t_pos_2);
-                                    float distance_from_surface_2 = distance_from_center_2 - atmosphere_info.planet_radius;
-                                    
-                                    average_density_ratio += exp(-distance_from_surface_2/atmosphere_info.atmosphere_average_distance) * t_max_2/camera_info.sampleAmount;
-                                }
                                     
                                 //average_density_ratio /= (camera_info.sampleAmount);
 
@@ -317,9 +338,11 @@ void main(){
 
                                 float angle_const = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
 
-                                float rayleigh_part_2_red   = ray_light.r  * angle_const * average_density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
-                                float rayleigh_part_2_green = ray_light.g  * angle_const * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
-                                float rayleigh_part_2_blue  = ray_light.b  * angle_const * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
+                                float density_ratio = exp(-(length(t_pos) - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_average_distance);
+
+                                float rayleigh_part_2_red   = ray_light.r  * angle_const * density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
+                                float rayleigh_part_2_green = ray_light.g  * angle_const * density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
+                                float rayleigh_part_2_blue  = ray_light.b  * angle_const * density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
                                 
                                 in_scatter_light += vec3(rayleigh_part_2_red, rayleigh_part_2_green, rayleigh_part_2_blue);
                                 
@@ -337,19 +360,7 @@ void main(){
 
                     // Out-scattering - koliko svjetlosti se izgubi raspršivanjem pri putovanju prema kameri
                     {
-                        float average_density_ratio_2 = 0;
-
-                        for(int j = 0; j < camera_info.sampleAmount; j++){
-                            // Pozicija toèke uzorka na liniji
-                            float t_smpl_2 = (t_min * (1-(float(j)/(camera_info.sampleAmount-1))) + t_max * (float(j)/(camera_info.sampleAmount-1))); // Interpolacija
-                            // Pozicija druge toèke uzorka u prostoru
-                            vec3 t_pos_2 = initPos + normalize(ray_sun_vector) * t_smpl_2;
-                            float distance_from_center_2 = length(t_pos_2);
-                            float distance_from_surface_2 = distance_from_center_2 - atmosphere_info.planet_radius;
-                            average_density_ratio_2 += exp(-distance_from_surface_2/atmosphere_info.atmosphere_average_distance) * (t_max-t_min)/camera_info.sampleAmount;
-                        }
-
-                        //average_density_ratio_2 /= (camera_info.sampleAmount);
+                        float average_density_ratio_2 = outScatter_partial(initPos + normalize(velocity) * t_min, initPos + normalize(velocity) * t_smpl);
 
                         float rayleigh_part_1_red   = 4 * pi * average_density_ratio_2 * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
                         float rayleigh_part_1_green = 4 * pi * average_density_ratio_2 * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
@@ -360,7 +371,7 @@ void main(){
                         total_ray_light.b = in_scatter_light.b * exp(-rayleigh_part_1_blue );
                                 
                         // total_ray_light je Ipv, total_light je Iv
-                        total_light += total_ray_light;
+                        total_light += total_ray_light * (t_max-t_min)/camera_info.sampleAmount;
                     }
                     
                 }

@@ -775,7 +775,7 @@ void RenderEngine::handle_input(){
 		case (SDL_MOUSEMOTION):
 		{
 			main_camera_movement.yaw += e.motion.xrel / 1000.0f;
-			main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
+			main_camera_movement.pitch += e.motion.yrel / 1000.0f;
 
 			
 		} break;

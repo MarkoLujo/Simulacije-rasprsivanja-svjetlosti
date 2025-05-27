@@ -61,7 +61,7 @@ int main(int argc, char* argv){
 	double num_air_particles_2 = (surface_mass / earth_atmosphere.molar_mass)  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
 	double surface_molecule_density = num_air_particles_2 / (1*1*1);
 
-	double K = 2 * pi * pi * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) / surface_molecule_density;
+	double K = 2 * pi * pi * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) / surface_molecule_density / 3.0f;
 
 
 	// Raèunanje Rayleighovog optièkog presjeka atmosfere
