@@ -134,18 +134,18 @@ void main(){
     if (intersecting_planet){
         // Èisto reprezentativan izraèun difuznog osvijetljenja površine planeta - linearno se skalira ovisno o sunèevom kutu (i radi samo pod pretpostavkom da je planet velik i približno ispod kamere)
         
-        if (atmosphere_info.sun_angle <= 180) {
+        /*if (atmosphere_info.sun_angle <= 180) {
             float tmp = atmosphere_info.sun_angle / 180.0; // [0.0 - 180.0] -> [0.0 - 1.0]
             tmp -= 0.5;          // -> [-0.5 - 0.5]
             tmp = -abs(tmp);     // -> [-0.5 - 0 - -0.5]
             tmp += 0.5;          // -> [0 - 0.5 - 0]
             sun_light = tmp * 2; // -> [0 - 1 - 0]
-        }
+        }*/
 
-        floor_reflect = vec3(floor_color);
+        floor_reflect = vec3(floor_color) * 0.00001;
 
-        imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
-        return;
+        //imageStore(outputPixels, ivec2(gIDx, gIDy), floor_color * sun_light);
+        //return;
     }
 
     {
@@ -283,76 +283,118 @@ void main(){
                         }
                     }
 
+
+
+
+
                     // Kolièina svjetla koje doðe do toèke gledanja
                     vec3 in_scatter_light = vec3(0,0,0);
-                    if (looking_at_sun) in_scatter_light += starting_ray_light;
-                    // Zadnjoj toèci uzorka se dodaje difuzno odbijanje od površine planeta 
-                    //if (planet_reflection && i==camera_info.sampleAmount-1) total_light += floor_reflect * dot(normalize(ray_sun_vector), normalize(t_pos));
+
+                    
+
+
+                    // Koristi se za sunèevo svjetlo i površinu planeta
+                    vec3 arriving_light = vec3(0,0,0);
 
                     if (!hit_surface){ 
 
                         // In-scattering - koliko svjetlosti se dobije raspršivanjem sunèevih zraka
-                        {
-                            // Traži se presjek zrake s atmosferom
-                    
-                            // Finalna jednadžba kugle pls
-                            float a = 1;
-                            float b = 2 * dot(normalize(ray_sun_vector), vec3(t_pos));
-                            float c = dot(vec3(t_pos),vec3(t_pos)) - (atmosphere_radius)*(atmosphere_radius);
-                            // Determinanta
-                            float d = b*b - 4*a*c;
-                            if (d > 0){ // Jedini put kada ovo ne bi trebalo vrijediti je na samom rubu atmosfere u nekim rijetkim sluèajevima
-                                // Raèunanje rješenja
-
-                                float tmp_1 = (-b);
-                                float tmp_2 = sqrt(b*b - 4*a*c);
-
-                                float t1 = (tmp_1 + tmp_2) / (2*a);
-                                float t2 = (tmp_1 - tmp_2) / (2*a);
-
-                                // Bitan je samo t_max ovdje
-                                float t_max_2 = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
-                                float t_min_2 = min(t1,t2);
-
-                                vec3 ray_light = starting_ray_light;
-
-                                // Zraka svjetlosti se gubi od sunca do zrake gledanja
-
-                                // Drugi set uzroènih toèaka - sada na zraci prema suncu
-                                // Odreðuje se srednja gustoæa zraka na putu
-
-                                float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
-
-
-                                    
-                                //average_density_ratio /= (camera_info.sampleAmount);
-
-                                // funkcija t u onoj jednadžbi
-                                float rayleigh_part_1_red   = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
-                                float rayleigh_part_1_green = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
-                                float rayleigh_part_1_blue  = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
-
-                                
-                                // Množenje s kutom
-                                float sun_angle = acos(dot(normalize(ray_sun_vector), normalize(velocity)));
-
-                                float angle_const = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
-
-                                float density_ratio = exp(-(length(t_pos) - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_average_distance);
-
-                                float rayleigh_part_2_red   = ray_light.r  * angle_const * density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
-                                float rayleigh_part_2_green = ray_light.g  * angle_const * density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
-                                float rayleigh_part_2_blue  = ray_light.b  * angle_const * density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
-                                
-                                in_scatter_light += vec3(rayleigh_part_2_red, rayleigh_part_2_green, rayleigh_part_2_blue);
-                                
-                            }
-                        }
-                     
-                    }
                         
+                        // Traži se presjek zrake s atmosferom
                     
+                        // Finalna jednadžba kugle pls
+                        float a = 1;
+                        float b = 2 * dot(normalize(ray_sun_vector), vec3(t_pos));
+                        float c = dot(vec3(t_pos),vec3(t_pos)) - (atmosphere_radius)*(atmosphere_radius);
+                        // Determinanta
+                        float d = b*b - 4*a*c;
+                        if (d > 0){ // Jedini put kada ovo ne bi trebalo vrijediti je na samom rubu atmosfere u nekim rijetkim sluèajevima
+                            // Raèunanje rješenja
 
+                            float tmp_1 = (-b);
+                            float tmp_2 = sqrt(b*b - 4*a*c);
+
+                            float t1 = (tmp_1 + tmp_2) / (2*a);
+                            float t2 = (tmp_1 - tmp_2) / (2*a);
+
+                            // Bitan je samo t_max ovdje
+                            float t_max_2 = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
+                            float t_min_2 = min(t1,t2);
+
+                            vec3 ray_light = starting_ray_light;
+
+                            // Zraka svjetlosti se gubi od sunca do zrake gledanja
+
+                            // Drugi set uzroènih toèaka - sada na zraci prema suncu
+                            // Odreðuje se srednja gustoæa zraka na putu
+
+                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
+                                                        
+      
+                            //average_density_ratio /= (camera_info.sampleAmount);
+
+                            // funkcija t u onoj jednadžbi
+                            float rayleigh_part_1_red   = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
+                            float rayleigh_part_1_green = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
+                            float rayleigh_part_1_blue  = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
+
+                            arriving_light.r = ray_light.r * exp(-rayleigh_part_1_red  );
+                            arriving_light.g = ray_light.g * exp(-rayleigh_part_1_green);
+                            arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue );
+                                
+                            // Množenje s kutom
+                            float sun_angle = acos(dot(normalize(ray_sun_vector), normalize(velocity)));
+
+                            float angle_const = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
+
+                            float density_ratio = exp(-(length(t_pos) - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_average_distance);
+
+                            float rayleigh_part_2_red   = ray_light.r  * angle_const * density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
+                            float rayleigh_part_2_green = ray_light.g  * angle_const * density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
+                            float rayleigh_part_2_blue  = ray_light.b  * angle_const * density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
+                                
+                            in_scatter_light += vec3(rayleigh_part_2_red, rayleigh_part_2_green, rayleigh_part_2_blue);
+                                
+                        }
+                    }
+                    else if (i == camera_info.sampleAmount-1){
+                        float a = 1;
+                        float b = 2 * dot(normalize(ray_sun_vector), vec3(t_pos));
+                        float c = dot(vec3(t_pos),vec3(t_pos)) - (atmosphere_radius)*(atmosphere_radius);
+                        // Determinanta
+                        float d = b*b - 4*a*c;
+                        if (d > 0){ // Jedini put kada ovo ne bi trebalo vrijediti je na samom rubu atmosfere u nekim rijetkim sluèajevima
+                            // Raèunanje rješenja
+
+                            float tmp_1 = (-b);
+                            float tmp_2 = sqrt(b*b - 4*a*c);
+
+                            float t1 = (tmp_1 + tmp_2) / (2*a);
+                            float t2 = (tmp_1 - tmp_2) / (2*a);
+
+                            // Bitan je samo t_max ovdje
+                            float t_max_2 = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
+                            float t_min_2 = min(t1,t2);
+
+                            vec3 ray_light = starting_ray_light;
+
+                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
+                            
+                            float rayleigh_part_1_red   = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
+                            float rayleigh_part_1_green = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
+                            float rayleigh_part_1_blue  = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
+
+                            arriving_light.r = ray_light.r * exp(-rayleigh_part_1_red  );
+                            arriving_light.g = ray_light.g * exp(-rayleigh_part_1_green);
+                            arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue );
+                        }
+                    
+                    }
+                    
+                        
+                    if (looking_at_sun) in_scatter_light = arriving_light;
+                    // Zadnjoj toèci uzorka se dodaje difuzno odbijanje od površine planeta 
+                    if (planet_reflection && i == camera_info.sampleAmount-1) in_scatter_light = floor_reflect * arriving_light * max(0,dot(normalize(ray_sun_vector), normalize(t_pos)));
                   
                     //vec3 total_ray_light_2 = vec3(1,1,1);
                     
@@ -375,6 +417,7 @@ void main(){
                     }
                     
                 }
+
                 
                 //total_light /= (camera_info.sampleAmount);
                 total_light = total_light.r * red_wave_color + total_light.g * green_wave_color + total_light.b * blue_wave_color;
