@@ -29,6 +29,8 @@ int main(int argc, char* argv){
 	Atmosphere earth_atmosphere = Atmosphere{
 		101325, // Tlak na morskoj razini (u pa)
 		8700, // Visina na kojoj se nalazi prosjeèna gustoæa atmosfere
+		1200, // Visina na kojoj se nalazi prosjeèna gustoæa aerosola u atmosferi
+		0.90, // Konstanta asmetrije kuta aerosolnog Mie raspršivanja
 
 		100 * 1000, // Maksimalna razina
 

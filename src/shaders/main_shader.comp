@@ -31,6 +31,8 @@ layout(set = 0, binding = 1) uniform InputBuffer2 {
     // Atmosfera
     float atmosphere_surface_pressure_pa;
 	float atmosphere_average_distance;
+	float atmosphere_average_distance_aerosol;
+    float atmosphere_mie_asymmetry_const;
 	float atmosphere_upper_limit;
 
     float atmosphere_temperature;
@@ -48,7 +50,7 @@ layout(set = 0, binding = 2, rgba8) uniform image2D outputPixels;
 
 
 // Raèunanje integrala
-float outScatter_partial(vec3 start, vec3 end){
+float outScatter_partial(vec3 start, vec3 end, float average_distance){
     float result = 0;
 
     for(int j = 0; j < camera_info.sampleAmount; j++){
@@ -58,7 +60,7 @@ float outScatter_partial(vec3 start, vec3 end){
         float distance_from_center = length(pos);
         float distance_from_surface = distance_from_center - atmosphere_info.planet_radius;
                                     
-        result += exp(-distance_from_surface/atmosphere_info.atmosphere_average_distance) * length(end - start)/camera_info.sampleAmount;
+        result += exp(-distance_from_surface/average_distance) * length(end - start)/camera_info.sampleAmount;
     }
 
     return result;
@@ -224,7 +226,7 @@ void main(){
                 
                 // Poèetna (upadna) zraka sunca
 
-                vec3 starting_ray_light = vec3(50,50,50);
+                vec3 starting_ray_light = vec3(50,50,50); // 70, 20, 10
 
                 // Ukupno svjetlo koje kamera dobiva
                 vec3 total_light = vec3(0,0,0);
@@ -291,6 +293,7 @@ void main(){
                     vec3 in_scatter_light = vec3(0,0,0);
 
                     
+                    float mie_scatter_constant = red_wavelenght * red_wavelenght * red_wavelenght * red_wavelenght;
 
 
                     // Koristi se za sunèevo svjetlo i površinu planeta
@@ -328,7 +331,8 @@ void main(){
                             // Drugi set uzroènih toèaka - sada na zraci prema suncu
                             // Odreðuje se srednja gustoæa zraka na putu
 
-                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
+                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2, atmosphere_info.atmosphere_average_distance);
+                            float average_density_ratio_mie = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2, atmosphere_info.atmosphere_average_distance_aerosol);
                                                         
       
                             //average_density_ratio /= (camera_info.sampleAmount);
@@ -338,6 +342,9 @@ void main(){
                             float rayleigh_part_1_green = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
                             float rayleigh_part_1_blue  = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
 
+
+                            float mie_part_1 =  4 * pi * average_density_ratio_mie * (float(atmosphere_info.K) / (mie_scatter_constant));
+
                             arriving_light.r = ray_light.r * exp(-rayleigh_part_1_red  );
                             arriving_light.g = ray_light.g * exp(-rayleigh_part_1_green);
                             arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue );
@@ -345,18 +352,24 @@ void main(){
                             // Množenje s kutom
                             float sun_angle = acos(dot(normalize(ray_sun_vector), normalize(velocity)));
 
-                            float angle_const = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
+                            float angle_const_rayleigh = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
+
+                            float asymmetry_const = atmosphere_info.atmosphere_mie_asymmetry_const; // Todo naði zašto je obrnuto (minus bi trebao biti oko sunca ali nije)
+                            float angle_const_mie = 3.0*(1.0-asymmetry_const*asymmetry_const)/(2.0*(2.0 + asymmetry_const*asymmetry_const)) * (1 + cos(sun_angle) * cos(sun_angle))/pow((1 + asymmetry_const*asymmetry_const - 2*asymmetry_const*cos(sun_angle)), 1.5);
 
                             float density_ratio = exp(-(length(t_pos) - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_average_distance);
 
-                            float rayleigh_part_2_red   = ray_light.r  * angle_const * density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
-                            float rayleigh_part_2_green = ray_light.g  * angle_const * density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
-                            float rayleigh_part_2_blue  = ray_light.b  * angle_const * density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
-                                
-                            in_scatter_light += vec3(rayleigh_part_2_red, rayleigh_part_2_green, rayleigh_part_2_blue);
+                            float rayleigh_part_2_red   = ray_light.r  * angle_const_rayleigh * density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   )) * exp(-rayleigh_part_1_red);
+                            float rayleigh_part_2_green = ray_light.g  * angle_const_rayleigh * density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght )) * exp(-rayleigh_part_1_green);
+                            float rayleigh_part_2_blue  = ray_light.b  * angle_const_rayleigh * density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  )) * exp(-rayleigh_part_1_blue);
+                            
+                            float mie_part_2 = length(ray_light) * angle_const_mie * density_ratio * (float(atmosphere_info.K) / (mie_scatter_constant)) * exp(-mie_part_1);
+
+                            in_scatter_light += vec3(rayleigh_part_2_red, rayleigh_part_2_green, rayleigh_part_2_blue) + vec3(mie_part_2, mie_part_2, mie_part_2);
                                 
                         }
                     }
+                    // Raèunanje odbijanja od površine planeta
                     else if (i == camera_info.sampleAmount-1){
                         float a = 1;
                         float b = 2 * dot(normalize(ray_sun_vector), vec3(t_pos));
@@ -378,15 +391,18 @@ void main(){
 
                             vec3 ray_light = starting_ray_light;
 
-                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2);
+                            float average_density_ratio = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2, atmosphere_info.atmosphere_average_distance);
+                            float average_density_ratio_mie = outScatter_partial(t_pos, t_pos + normalize(ray_sun_vector) * t_max_2, atmosphere_info.atmosphere_average_distance_aerosol);
                             
                             float rayleigh_part_1_red   = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
                             float rayleigh_part_1_green = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
                             float rayleigh_part_1_blue  = 4 * pi * average_density_ratio * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
 
-                            arriving_light.r = ray_light.r * exp(-rayleigh_part_1_red  );
-                            arriving_light.g = ray_light.g * exp(-rayleigh_part_1_green);
-                            arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue );
+                            float mie_part_1 =  4 * pi * average_density_ratio_mie * (float(atmosphere_info.K) / (mie_scatter_constant));
+
+                            arriving_light.r = ray_light.r * exp(-rayleigh_part_1_red   - mie_part_1);
+                            arriving_light.g = ray_light.g * exp(-rayleigh_part_1_green - mie_part_1);
+                            arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue  - mie_part_1);
                         }
                     
                     }
@@ -402,16 +418,19 @@ void main(){
 
                     // Out-scattering - koliko svjetlosti se izgubi raspršivanjem pri putovanju prema kameri
                     {
-                        float average_density_ratio_2 = outScatter_partial(initPos + normalize(velocity) * t_min, initPos + normalize(velocity) * t_smpl);
+                        float average_density_ratio_2 = outScatter_partial(initPos + normalize(velocity) * t_min, initPos + normalize(velocity) * t_smpl, atmosphere_info.atmosphere_average_distance);
+                        float average_density_ratio_2_mie = outScatter_partial(initPos + normalize(velocity) * t_min, initPos + normalize(velocity) * t_smpl, atmosphere_info.atmosphere_average_distance_aerosol);
 
                         float rayleigh_part_1_red   = 4 * pi * average_density_ratio_2 * (float(atmosphere_info.K) / (red_wavelenght   * red_wavelenght   * red_wavelenght   * red_wavelenght   ));
                         float rayleigh_part_1_green = 4 * pi * average_density_ratio_2 * (float(atmosphere_info.K) / (green_wavelenght * green_wavelenght * green_wavelenght * green_wavelenght ));
                         float rayleigh_part_1_blue  = 4 * pi * average_density_ratio_2 * (float(atmosphere_info.K) / (blue_wavelenght  * blue_wavelenght  * blue_wavelenght  * blue_wavelenght  ));
 
-                        total_ray_light.r = in_scatter_light.r * exp(-rayleigh_part_1_red  );
-                        total_ray_light.g = in_scatter_light.g * exp(-rayleigh_part_1_green);
-                        total_ray_light.b = in_scatter_light.b * exp(-rayleigh_part_1_blue );
-                                
+                        float mie_part_1 =  4 * pi * average_density_ratio_2_mie * (float(atmosphere_info.K) / (mie_scatter_constant));
+
+                        total_ray_light.r = in_scatter_light.r * exp(-rayleigh_part_1_red   - mie_part_1);
+                        total_ray_light.g = in_scatter_light.g * exp(-rayleigh_part_1_green - mie_part_1);
+                        total_ray_light.b = in_scatter_light.b * exp(-rayleigh_part_1_blue  - mie_part_1);
+
                         // total_ray_light je Ipv, total_light je Iv
                         total_light += total_ray_light * (t_max-t_min)/camera_info.sampleAmount;
                     }

@@ -1,6 +1,8 @@
 struct Atmosphere{
 	float surface_pressure_pa;
 	float average_density_height; // Na ovoj visini se nalazi prosjeèna gustoæa atmosfere
+	float average_density_height_aerosol; // Visina prosjeène gustoæe aerosola u atmosferi
+	float mie_asymmetry_const;
 
 	float upper_limit;
 
