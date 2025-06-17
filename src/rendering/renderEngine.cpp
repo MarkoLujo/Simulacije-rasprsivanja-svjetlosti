@@ -3,6 +3,16 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
+static void check_vk_result(VkResult err)
+{
+	if (err == 0)
+		return;
+	fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+	if (err < 0)
+		abort();
+}
+
+
 void RenderEngine::init(){
 
 
@@ -29,6 +39,8 @@ void RenderEngine::init(){
 	allocate_compute_buffers();
 	allocate_compute_images();
 	
+	
+
 	// Postavljanje struktura za opis grafièkog protoènog sustava, uèitavanje sjenèara i opis podataka
 	init_compute_descriptors();
 	init_compute_pipelines();
@@ -36,10 +48,18 @@ void RenderEngine::init(){
 	// Postavljanje struktura za prikaz slike
 	init_swapchain();
 
+
 	// Struktura za prijenos GPU naredbi
 	init_command_buffers();
+
+	
 	// Sinkronizacijske strukture
 	init_sync_structures();
+
+
+	init_render_pass();
+	init_framebuffers();
+	init_imgui();
 
 }
 
@@ -147,6 +167,40 @@ void RenderEngine::init_vulkan(){
 
 	_frames = new Frame[_max_frames_in_flight];
 }
+
+void RenderEngine::init_imgui(){
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplSDL2_InitForVulkan(_window);
+	ImGui_ImplVulkan_InitInfo init_info = {};
+	init_info.Instance = _instance;
+	init_info.PhysicalDevice = _physical_GPU;
+	init_info.Device = _device;
+	init_info.QueueFamily = _graphics_queue_family;
+	init_info.Queue = _graphics_queue;
+	init_info.DescriptorPoolSize = 16;
+	init_info.Subpass = 0;
+	init_info.MinImageCount = 2;
+	init_info.ImageCount = 2;
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.CheckVkResultFn = check_vk_result;
+	init_info.RenderPass = _renderPass;
+	ImGui_ImplVulkan_Init(&init_info);
+
+
+	_main_deletion_queue.push_function([=]() {
+		ImGui_ImplVulkan_Shutdown();
+		ImGui_ImplSDL2_Shutdown();
+		ImGui::DestroyContext();
+		
+		});
+
+}
+
 
 void RenderEngine::allocate_compute_buffers(){
 
@@ -372,6 +426,46 @@ void RenderEngine::init_compute_descriptors(){
 }
 
 
+
+void RenderEngine::init_render_pass(){
+
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format = _swapchain_image_format;
+	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &colorAttachmentRef;
+
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.subpassCount = 1;
+	renderPassInfo.pSubpasses = &subpass;
+
+	VK_CHECK(vkCreateRenderPass(_device, &renderPassInfo, nullptr, &_renderPass));
+
+
+	_main_deletion_queue.push_function([=]() {
+		vkDestroyRenderPass(_device, _renderPass, nullptr);
+		});
+
+
+}
+
+
 bool RenderEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule)
 {
 	//open the file. With cursor at the end
@@ -474,7 +568,6 @@ void RenderEngine::init_compute_pipelines(){
 
 }
 
-
 VkPipeline RenderEngine::PipelineBuilder::build_compute_pipeline(VkDevice device) {
 
 
@@ -499,7 +592,6 @@ VkPipeline RenderEngine::PipelineBuilder::build_compute_pipeline(VkDevice device
 }
 
 
-
 void RenderEngine::init_swapchain(){
 	vkb::SwapchainBuilder swapchainBuilder{ _physical_GPU, _device, _window_surface };
 
@@ -520,6 +612,7 @@ void RenderEngine::init_swapchain(){
 
 	// Spremanje swapchaina
 	_swapchain = vkbSwapchain.swapchain;
+	_swapchain_extent = vkbSwapchain.extent;
 	_swapchain_images = vkbSwapchain.get_images().value();
 	_swapchain_image_views = vkbSwapchain.get_image_views().value(); 
 
@@ -536,6 +629,38 @@ void RenderEngine::init_swapchain(){
 			vkDestroyImageView(_device, _swapchain_image_views[i], nullptr);
 			});
 	}
+}
+
+
+void RenderEngine::init_framebuffers(){
+
+	_framebuffers.resize(_swapchain_images.size());
+
+	for (size_t i = 0; i < _swapchain_image_views.size(); i++) {
+		VkImageView attachments[] = {
+			_swapchain_image_views[i]
+		};
+
+		VkFramebufferCreateInfo framebufferInfo{};
+		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		framebufferInfo.renderPass = _renderPass;
+		framebufferInfo.attachmentCount = 1;
+		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.width = _swapchain_extent.width;
+		framebufferInfo.height = _swapchain_extent.height;
+		framebufferInfo.layers = 1;
+
+		if (vkCreateFramebuffer(_device, &framebufferInfo, nullptr, &_framebuffers[i]) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create framebuffer!");
+		}
+
+		_main_deletion_queue.push_function([=]() {
+			vkDestroyFramebuffer(_device, _framebuffers[i], nullptr);
+			});
+	}
+
+
+
 }
 
 void RenderEngine::init_command_buffers(){
@@ -620,17 +745,22 @@ void RenderEngine::init_sync_structures(){
 
 
 		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._compute_fence));
+		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._gui_fence));
+
 		_main_deletion_queue.push_function([=]() {
 			vkDestroyFence(_device, _frames[i]._compute_fence, nullptr);
+			vkDestroyFence(_device, _frames[i]._gui_fence, nullptr);
 			});
 
 
 		VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._compute_finish_semaphore));
+		VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._gui_finish_semaphore));
 		VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_frames[i]._present_semaphore));
 
 
 		_main_deletion_queue.push_function([=]() {
 			vkDestroySemaphore(_device, _frames[i]._compute_finish_semaphore, nullptr);
+			vkDestroySemaphore(_device, _frames[i]._gui_finish_semaphore, nullptr);
 			vkDestroySemaphore(_device, _frames[i]._present_semaphore, nullptr);
 
 			});
@@ -654,7 +784,15 @@ void RenderEngine::run(){
 
 		process_movement();
 
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplSDL2_NewFrame();
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow(); // Show demo window! :)
+
+
+		ImGui::Render();
 		compute();
+
 
 	}
 
@@ -822,6 +960,7 @@ void RenderEngine::compute(){
 
 	// Èekanje na dovršetak naredba prošle slike (tj. prošle X-te, gdje je X maksimalan broj bufferanih slika (obièno 1-3))
 	VK_CHECK(vkWaitForFences(_device, 1, &_frames[_current_frame]._compute_fence, true, 1000000000));
+	VK_CHECK(vkWaitForFences(_device, 1, &_frames[_current_frame]._gui_fence, true, 1000000000));
 
 	// Postavljanje komandnog spremnika
 	VK_CHECK(vkResetCommandBuffer(_frames[_current_frame]._compute_command_buffer, 0));
@@ -844,6 +983,7 @@ void RenderEngine::compute(){
 
 	// Postavljanje ogradi za naredbe
 	VK_CHECK(vkResetFences(_device, 1, &_frames[_current_frame]._compute_fence));
+	VK_CHECK(vkResetFences(_device, 1, &_frames[_current_frame]._gui_fence));
 
 
 	// Raèunanje novih uniformnih podataka - u ovom sluèaju fiksna pozicija kamere
@@ -992,8 +1132,44 @@ void RenderEngine::compute(){
 	vkCmdPipelineBarrier(_frames[_current_frame]._compute_command_buffer, srcFlags, dstFlags, 0, 0, NULL, 0, NULL, 2,
 		imageBarrierArray3);
 
+
 	// Finalizacija komandog spremnika - sada se može slati na GPU za izvedbu
 	VK_CHECK(vkEndCommandBuffer(_frames[_current_frame]._compute_command_buffer));
+
+	// CRTANJE GUI-A
+
+	// Postavljanje komandnog spremnika
+	VK_CHECK(vkResetCommandBuffer(_frames[_current_frame]._graphics_command_buffer, 0));
+	// Poèetak spremanja grafièkih naredbi u spremnik za grafiku
+	VK_CHECK(vkBeginCommandBuffer(_frames[_current_frame]._graphics_command_buffer, &cmdBeginInfo));
+
+
+
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = _renderPass;
+	renderPassInfo.framebuffer = _framebuffers[swapchainImageIndex];
+	renderPassInfo.renderArea.offset = {0, 0};
+	renderPassInfo.renderArea.extent = _swapchain_extent;
+
+	//VkClearValue clearColor = {{{0.0f, 0.0f, 0.0f, 0.0f}}};
+	renderPassInfo.clearValueCount = 0;
+	//renderPassInfo.pClearValues = &clearColor;
+
+	vkCmdBeginRenderPass(_frames[_current_frame]._graphics_command_buffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	ImDrawData* draw_data = ImGui::GetDrawData();
+	ImGui_ImplVulkan_RenderDrawData(draw_data, _frames[_current_frame]._graphics_command_buffer);
+
+	vkCmdEndRenderPass(_frames[_current_frame]._graphics_command_buffer);
+
+
+
+
+	VK_CHECK(vkEndCommandBuffer(_frames[_current_frame]._graphics_command_buffer));
+
+
+
 
 
 	// Informacije o slanju
@@ -1019,7 +1195,26 @@ void RenderEngine::compute(){
 	VK_CHECK(vkQueueSubmit(_compute_queue, 1, &submit, _frames[_current_frame]._compute_fence));
 
 
+	// Informacije o slanju crtanja GUI-a
+	VkSubmitInfo submit_g = {};
+	submit_g.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_g.pNext = nullptr;
 
+	VkPipelineStageFlags waitStage_g = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+	submit_g.pWaitDstStageMask = &waitStage_g;
+	submit_g.waitSemaphoreCount = 1;
+	submit_g.pWaitSemaphores = &_frames[_current_frame]._compute_finish_semaphore;
+	submit_g.signalSemaphoreCount = 1;
+	submit_g.pSignalSemaphores = &_frames[_current_frame]._gui_finish_semaphore;
+
+
+	submit_g.commandBufferCount = 1;
+	submit_g.pCommandBuffers = &_frames[_current_frame]._graphics_command_buffer;
+
+	// Slanje i izvršavanje naredbenog spremnika
+	// _compute_fence æe sada blokirati daljnja slanja dok GPU nije gotov.
+	VK_CHECK(vkQueueSubmit(_graphics_queue, 1, &submit_g, _frames[_current_frame]._gui_fence));
 
 
 	// Priprema prezentacije na swapchain
@@ -1030,7 +1225,7 @@ void RenderEngine::compute(){
 	presentInfo.pSwapchains = &_swapchain;
 	presentInfo.swapchainCount = 1;
 	// Èekanje na semafor (tj. da komputacijski sjenèar i kopiranje slika završe)
-	presentInfo.pWaitSemaphores = &_frames[_current_frame]._compute_finish_semaphore;
+	presentInfo.pWaitSemaphores = &_frames[_current_frame]._gui_finish_semaphore;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pImageIndices = &swapchainImageIndex;
 	VkResult presentResult = vkQueuePresentKHR(_graphics_queue, &presentInfo);

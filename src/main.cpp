@@ -1,9 +1,12 @@
 #include <iostream>
 #include "rendering\renderEngine.h"
 
+
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
 
 #undef main
 int main(int argc, char* argv){

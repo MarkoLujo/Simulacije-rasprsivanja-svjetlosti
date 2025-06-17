@@ -19,6 +19,13 @@
 #include "../simulation/sun.h"
 #include "../simulation/atmosphere.h"
 
+
+#include "..\third-party\imgui\imgui.h"
+#include "..\third-party\imgui\imgui_impl_sdl2.h"
+#include "..\third-party\imgui\imgui_impl_vulkan.h"
+
+
+
 #define VK_CHECK(x)														\
 	{																	\
 		VkResult err = x;												\
@@ -81,6 +88,10 @@ struct Frame {
 
 	VkFence _compute_fence;
 	VkSemaphore _compute_finish_semaphore;
+
+	VkFence _gui_fence;
+	VkSemaphore _gui_finish_semaphore;
+
 	VkSemaphore _present_semaphore;
 };
 
@@ -198,11 +209,13 @@ public:
 	// Strukture za prikazivanje
 	VkSwapchainKHR _swapchain;
 	VkFormat _swapchain_image_format;
+	VkExtent2D _swapchain_extent;
 	std::vector<VkImage> _swapchain_images;
 	std::vector<VkImageView> _swapchain_image_views;
 
-	
+	std::vector<VkFramebuffer> _framebuffers;
 
+	VkRenderPass _renderPass;
 
 
 	bool should_quit = false;
@@ -243,8 +256,15 @@ private:
 	void cleanup_swapchain();
 	void recreate_swapchain();
 
+	void init_framebuffers();
+
 	void init_command_buffers();
 	void init_sync_structures();
+
+
+	void init_render_pass();
+
+	void init_imgui();
 
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
