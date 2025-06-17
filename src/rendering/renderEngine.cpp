@@ -192,6 +192,11 @@ void RenderEngine::init_imgui(){
 	ImGui_ImplVulkan_Init(&init_info);
 
 
+
+	ImGui::PushFontSize(18.0f);
+
+
+
 	_main_deletion_queue.push_function([=]() {
 		ImGui_ImplVulkan_Shutdown();
 		ImGui_ImplSDL2_Shutdown();
@@ -776,6 +781,7 @@ void RenderEngine::init_sync_structures(){
 
 void RenderEngine::run(){
 
+
 	while (!should_quit){
 	
 
@@ -787,7 +793,10 @@ void RenderEngine::run(){
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplSDL2_NewFrame();
 		ImGui::NewFrame();
-		ImGui::ShowDemoWindow(); // Show demo window! :)
+
+		show_gui();
+
+
 
 
 		ImGui::Render();
@@ -799,12 +808,76 @@ void RenderEngine::run(){
 
 }
 
+void RenderEngine::show_gui(){
+
+	if (!_config_mode){
+		if (!_hide_GUI){
+			ImGui::Begin("Opis", 0, 
+				ImGuiWindowFlags_NoBackground | 
+				ImGuiWindowFlags_AlwaysAutoResize | 
+				ImGuiWindowFlags_NoCollapse | 
+				ImGuiWindowFlags_NoDecoration
+			);
+			const ImVec2 pos {0,0};
+		
+			ImGui::SetWindowPos("Opis", pos);
+			ImGui::SetWindowFontScale(1);
+			ImGui::Text("Pritisnite \"ESC\" za mijenjanje parametara, ili \"F1\" za skrivanje/pokazivanje ovog teksta ");
+		
+			ImGui::End();
+		}
+	}
+	else{
+		ImGui::Begin("Kontrole", 0, 
+			ImGuiWindowFlags_AlwaysAutoResize 
+		);
+		const ImVec2 pos {0,0};
+		ImGui::SetWindowPos("Kontrole", pos);
+
+		ImGui::SeparatorText("Kontrole planeta");
+
+
+
+
+		ImGui::End();
+		
+
+		ImGui::Begin("Upute", 0, 
+			ImGuiWindowFlags_AlwaysAutoResize | 
+			ImGuiWindowFlags_NoCollapse | 
+			ImGuiWindowFlags_NoDecoration
+		);
+		const ImVec2 pos2 {0,500};
+
+		ImGui::SetWindowPos("Upute", pos2);
+
+		ImGui::Text("Opis kontrola:");
+		ImGui::Text("Kretnje mišem - okretanje kamere");
+		ImGui::Text("WASD, Q/E - pomicanje kamere");
+		ImGui::Text("+/- na numpadu - pomicanje sunca");
+
+		ImGui::Text("F1 - skrivanje GUI-a izvan ovog moda");
+		ImGui::Text("ESC - ulaz/izlaz i konfiguracijskog moda (ovog)");
+
+		ImGui::End();
+
+	}
+
+	
+
+}
+
+
 void RenderEngine::handle_input(){
 
 
 	SDL_Event e;
 	while ((SDL_PollEvent(&e) != 0) && !should_quit)
 	{
+
+		ImGui_ImplSDL2_ProcessEvent(&e);
+
+
 
 		if (e.type == SDL_QUIT){
 
@@ -823,15 +896,12 @@ void RenderEngine::handle_input(){
 			{
 			case (SDLK_KP_PLUS):
 			{
-				sun.angle += 5;
-				while (sun.angle > 360) sun.angle -= 360;
+				sun_movement = 1;
 
 			} break;
 			case (SDLK_KP_MINUS):
 			{
-				sun.angle -= 5;
-				while (sun.angle < 0) sun.angle += 360;
-
+				sun_movement = -1;
 			} break;
 
 			default:
@@ -866,6 +936,27 @@ void RenderEngine::handle_input(){
 				main_camera_movement.v_y = -1;
 			} break;
 
+
+
+			case (SDL_SCANCODE_ESCAPE):
+			{
+				_config_mode = !_config_mode;
+
+				if (_config_mode){
+					SDL_SetRelativeMouseMode(SDL_FALSE);
+				}
+				else{	
+					SDL_SetRelativeMouseMode(SDL_TRUE);
+				}
+
+
+			} break;
+			case (SDL_SCANCODE_F1):
+			{
+				_hide_GUI = !_hide_GUI;
+
+			} break;
+
 			default:
 				break;
 			}
@@ -876,6 +967,22 @@ void RenderEngine::handle_input(){
 		}
 		case (SDL_KEYUP):
 		{
+			switch (e.key.keysym.sym)
+			{
+			case (SDLK_KP_PLUS):
+			{
+				if (sun_movement == 1) sun_movement = 0;
+
+			} break;
+			case (SDLK_KP_MINUS):
+			{
+				if (sun_movement == -1) sun_movement = 0;
+			} break;
+
+			default:
+				break;
+			}
+
 
 			switch (e.key.keysym.scancode)
 			{
@@ -912,10 +1019,10 @@ void RenderEngine::handle_input(){
 		} break;
 		case (SDL_MOUSEMOTION):
 		{
-			main_camera_movement.yaw -= e.motion.xrel / 1000.0f;
-			main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
-
-			
+			if (!_config_mode){
+				main_camera_movement.yaw -= e.motion.xrel / 1000.0f;
+				main_camera_movement.pitch -= e.motion.yrel / 1000.0f;
+			}	
 		} break;
 		default:
 			break;
@@ -948,6 +1055,10 @@ void RenderEngine::process_movement(){
 	main_camera.position += 2000 * main_camera_movement.v_x * main_camera.right;
 	main_camera.position += 2000 * main_camera_movement.v_y * main_camera.up;
 	main_camera.position += 2000 * main_camera_movement.v_z * main_camera.front;
+
+	sun.angle += sun_movement * 0.75f;
+	while (sun.angle > 360) sun.angle -= 360;
+	while (sun.angle < 0) sun.angle += 360;
 }
 
 void RenderEngine::compute(){

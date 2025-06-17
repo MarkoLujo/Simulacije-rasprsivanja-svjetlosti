@@ -220,6 +220,10 @@ public:
 
 	bool should_quit = false;
 
+
+	bool _config_mode = false;
+	bool _hide_GUI = false;
+
 	// Strukture simulacije
 
 	Camera main_camera;
@@ -236,6 +240,8 @@ public:
 	Camera_movement main_camera_movement;
 
 	Sun sun;
+	float sun_movement = 0;
+
 	Planet main_planet;
 	double K;
 
@@ -267,6 +273,8 @@ private:
 	void init_imgui();
 
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+
+	void show_gui();
 
 	// Glavni proces pozivanja sjenèara
 	void compute();
