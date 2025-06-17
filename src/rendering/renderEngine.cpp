@@ -797,14 +797,35 @@ void RenderEngine::run(){
 		show_gui();
 
 
+		if (prev_frame_atmosphere.surface_pressure_pa != main_planet.atmosphere.surface_pressure_pa || 
+			prev_frame_atmosphere.temperature != main_planet.atmosphere.temperature || 
+			prev_frame_atmosphere.molar_mass != main_planet.atmosphere.molar_mass || 
+			prev_frame_atmosphere.refractivity != main_planet.atmosphere.refractivity
+			){
+			recalculate_K();
+		
+		}
 
 
 		ImGui::Render();
 		compute();
 
+		prev_frame_atmosphere = main_planet.atmosphere;
 
 	}
 
+
+}
+
+void RenderEngine::recalculate_K(){
+
+	double surface_density = main_planet.atmosphere.surface_pressure_pa /(main_planet.atmosphere.temperature * (8.3144621 /*plinska konstanta*/  / main_planet.atmosphere.molar_mass));
+	double surface_mass = surface_density * (1*1*1);
+	double num_air_particles_2 = (surface_mass / main_planet.atmosphere.molar_mass)  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
+	double surface_molecule_density = num_air_particles_2 / (1*1*1);
+
+	double pi = 3.141592654;
+	K = 2 * pi * pi * (main_planet.atmosphere.refractivity*main_planet.atmosphere.refractivity - 1) * (main_planet.atmosphere.refractivity*main_planet.atmosphere.refractivity - 1) / surface_molecule_density / 3.0f;
 
 }
 
@@ -816,13 +837,15 @@ void RenderEngine::show_gui(){
 				ImGuiWindowFlags_NoBackground | 
 				ImGuiWindowFlags_AlwaysAutoResize | 
 				ImGuiWindowFlags_NoCollapse | 
-				ImGuiWindowFlags_NoDecoration
+				ImGuiWindowFlags_NoDecoration | 
+				ImGuiWindowFlags_NoMove
+
 			);
 			const ImVec2 pos {0,0};
 		
 			ImGui::SetWindowPos("Opis", pos);
-			ImGui::SetWindowFontScale(1);
-			ImGui::Text("Pritisnite \"ESC\" za mijenjanje parametara, ili \"F1\" za skrivanje/pokazivanje ovog teksta ");
+			const ImVec4 textCol {1,1,1,1};
+			ImGui::TextColored(textCol, "Pritisnite \"ESC\" za mijenjanje parametara, ili \"F1\" za skrivanje/pokazivanje ovog teksta ");
 		
 			ImGui::End();
 		}
@@ -831,12 +854,46 @@ void RenderEngine::show_gui(){
 		ImGui::Begin("Kontrole", 0, 
 			ImGuiWindowFlags_AlwaysAutoResize 
 		);
-		const ImVec2 pos {0,0};
-		ImGui::SetWindowPos("Kontrole", pos);
+
+		ImGui::SeparatorText("Kontrole simulacije");
+
+		ImGui::SliderFloat("Brzina kamere", &camera_speed, 0.025,  100, "%.3f", ImGuiSliderFlags_Logarithmic);
+
+		ImGui::InputInt("Broj iteracija zrake", &sample_amount_in,1,10);
+		ImGui::InputInt("Broj iteracija tlaka", &sample_amount_out,1,10);
+
+		ImGui::Checkbox("Rayleigh simulacija", &do_rayleigh);
+		ImGui::Checkbox("Aerosolna Mie simulacija", &do_mie);
+
 
 		ImGui::SeparatorText("Kontrole planeta");
+		ImGui::InputFloat("Radijus planeta", &main_planet.radius, 1000, 1000 * 100, "%.0f");
+		//ImGui::SliderFloat("Radijus planeta", &main_planet.radius, 6371 * 500,  6371 * 2000, "%.0f", ImGuiSliderFlags_Logarithmic);
+		
+		ImGui::SeparatorText("Kontrole atmosfere");
+		ImGui::SliderFloat("Povrsinski tlak (pa)", &main_planet.atmosphere.surface_pressure_pa, 101325/16.0f,  101325*4.0f, "%.0f", ImGuiSliderFlags_Logarithmic);		
+		ImGui::SliderFloat("Visina prosjecne gustoce zraka (m)", &main_planet.atmosphere.average_density_height, 100,  20000, "%.0f");
+		ImGui::SliderFloat("Visina prosjecne gustoce aerosola", &main_planet.atmosphere.average_density_height_aerosol, 100,  20000, "%.0f");
+
+		ImGui::SliderFloat("Relativna kolicina aerosola", &aerosol_density_mul, 0.0f,  20.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Mie asimetrija", &main_planet.atmosphere.mie_asymmetry_const, -0.99,  0.99, "%.3f");
+
+		ImGui::SliderFloat("Gornja granica atmosfere", &main_planet.atmosphere.upper_limit, 100 * 1000,  100 * 10000, "%.0f");
 
 
+		ImGui::SeparatorText("Kontrole Sunca");
+		ImGui::SliderFloat("Udaljenost", &sun.distance, 1.496f*powf(10, 4)*1000,  1.496f*powf(10, 10)*1000, "%.0f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Velicina", &sun.radius, 1391400.0f,  1391400.0f * 100000, "%.0f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Kut", &sun.angle, 0.0f,  360.0f, "%.0f");
+
+		ImGui::SeparatorText("Kontrole svjetla");
+
+		ImGui::SliderFloat("Intenzitet svjetlosti", &light_intensity, 0.0f,  200.0f, "%.2f");
+		ImGui::SliderFloat3("Boja svjetlosti", &light_color[0], 0.0f,  1.0f, "%.2f");
+
+		ImGui::SliderFloat("Valna duljina crvene komponente (nm)", &r_wavelen, 10,  2000, "%.2f");
+		ImGui::SliderFloat("Valna duljina zelene komponente (nm)", &g_wavelen, 10,  2000, "%.2f");
+		ImGui::SliderFloat("Valna duljina plave komponente (nm)", &b_wavelen, 10,  2000, "%.2f");
 
 
 		ImGui::End();
@@ -845,14 +902,15 @@ void RenderEngine::show_gui(){
 		ImGui::Begin("Upute", 0, 
 			ImGuiWindowFlags_AlwaysAutoResize | 
 			ImGuiWindowFlags_NoCollapse | 
-			ImGuiWindowFlags_NoDecoration
+			ImGuiWindowFlags_NoDecoration | 
+			ImGuiWindowFlags_NoMove
 		);
-		const ImVec2 pos2 {0,500};
+		const ImVec2 pos2 {5,750};
 
 		ImGui::SetWindowPos("Upute", pos2);
 
-		ImGui::Text("Opis kontrola:");
-		ImGui::Text("Kretnje mišem - okretanje kamere");
+		ImGui::Text("Opis koristenja:");
+		ImGui::Text("Kretnje misem - okretanje kamere");
 		ImGui::Text("WASD, Q/E - pomicanje kamere");
 		ImGui::Text("+/- na numpadu - pomicanje sunca");
 
@@ -1052,9 +1110,9 @@ void RenderEngine::process_movement(){
 	main_camera.front = rotate_matrix[2];
 
 
-	main_camera.position += 2000 * main_camera_movement.v_x * main_camera.right;
-	main_camera.position += 2000 * main_camera_movement.v_y * main_camera.up;
-	main_camera.position += 2000 * main_camera_movement.v_z * main_camera.front;
+	main_camera.position += camera_speed * 750 * main_camera_movement.v_x * main_camera.right;
+	main_camera.position += camera_speed * 750 * main_camera_movement.v_y * main_camera.up;
+	main_camera.position += camera_speed * 750 * main_camera_movement.v_z * main_camera.front;
 
 	sun.angle += sun_movement * 0.75f;
 	while (sun.angle > 360) sun.angle -= 360;
@@ -1117,7 +1175,12 @@ void RenderEngine::compute(){
 	camera_input.xDirMultiplier = 1.0f/1000.0f;
 	camera_input.yDirMultiplier = 1.0f/1000.0f;
 
-	camera_input.sampleAmount = sample_amount;
+	camera_input.sampleAmount_in = sample_amount_in;
+	camera_input.sampleAmount_out = sample_amount_out;
+
+	camera_input.mode = 0;
+	if (do_rayleigh) camera_input.mode |= 1;
+	if (do_mie) camera_input.mode |= 2;
 
 	// Prebacivanje uniformnih podataka na GPU
 	void* data;
@@ -1131,6 +1194,14 @@ void RenderEngine::compute(){
 	atmosphere_input.sun = sun;
 	atmosphere_input.planet = main_planet;
 	atmosphere_input.K = K;
+
+	atmosphere_input.aerosol_density_mul = aerosol_density_mul;
+
+	atmosphere_input.r_wavelen = r_wavelen;
+	atmosphere_input.g_wavelen = g_wavelen;
+	atmosphere_input.b_wavelen = b_wavelen;
+	atmosphere_input.light_intensity = light_intensity;
+	atmosphere_input.light_color = light_color;
 
 	vmaMapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation, &data);
 	memcpy(data, &atmosphere_input, sizeof(shader_input_buffer_2));

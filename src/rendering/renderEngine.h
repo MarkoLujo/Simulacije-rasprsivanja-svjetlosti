@@ -110,7 +110,10 @@ struct shader_input_buffer_1 {
 	float xDirMultiplier;
 	float yDirMultiplier;
 
-	float sampleAmount;
+	int sampleAmount_in;
+	int sampleAmount_out;
+
+	int mode;
 };
 
 
@@ -118,11 +121,22 @@ struct shader_input_buffer_2 {
 	Sun sun;
 	Planet planet;
 
-	// Dodano da se ne mora raèunati za svaki piksel svaki prikaz
-	double K;
 
 	// Optièki presjek puta Avogadrova konstanta (6.02214076 * pow(10,23)). Zbog gubitka preciznosti (jer Rayleighova jednadžba sadrži množenje jako malog presjeka s jako velikim brojem èestica),
 	// ovi presjeci su veæ pomnoženi s konstantom te je taj korak izostavljen u sjenèaru. 
+	alignas(8) double K;
+
+	// Ostale postavke
+	alignas(4) float aerosol_density_mul;
+
+	alignas(4) float r_wavelen;
+	alignas(4) float g_wavelen;
+	alignas(4) float b_wavelen;
+	alignas(4) float light_intensity;
+	alignas(16) glm::vec4 light_color; 
+
+	// Dodano da se ne mora raèunati za svaki piksel svaki prikaz
+	
 };
 
 
@@ -243,10 +257,26 @@ public:
 	float sun_movement = 0;
 
 	Planet main_planet;
+
+	Atmosphere prev_frame_atmosphere;
 	double K;
 
 
-	float sample_amount;
+	int sample_amount_in;
+	int sample_amount_out;
+
+	float camera_speed = 1;
+
+	bool do_rayleigh = true;
+	bool do_mie = true;
+
+	float aerosol_density_mul = 0.1f;
+
+	float r_wavelen = 630;
+	float g_wavelen = 525;
+	float b_wavelen = 440;
+	float light_intensity = 50;
+	glm::vec4 light_color = {1,1,1,1};
 
 private:
 	
@@ -282,4 +312,7 @@ private:
 
 	void handle_input();
 	void process_movement();
+
+
+	void recalculate_K();
 };

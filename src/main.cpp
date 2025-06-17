@@ -31,8 +31,13 @@ int main(int argc, char* argv){
 
 	Atmosphere earth_atmosphere = Atmosphere{
 		101325, // Tlak na morskoj razini (u pa)
+
 		8700, // Visina na kojoj se nalazi prosjeèna gustoæa atmosfere
 		1200, // Visina na kojoj se nalazi prosjeèna gustoæa aerosola u atmosferi
+		// Razlog zašto veæi površinski tlak daje "manje gustu" atmosferu je zbog naèina raèunanja s prosjeènom vrijednosti 
+		// ako je tlak na površini visok, po raèunu tlak svugdje drugdje je puno niži (a zrake su èešæe visoko u zraku)
+
+
 		0.90, // Konstanta asmetrije kuta aerosolnog Mie raspršivanja
 
 		100 * 1000, // Maksimalna razina
@@ -60,10 +65,13 @@ int main(int argc, char* argv){
 
 	double pi = 3.141592654;
 
+	double surface_mole_number =  (earth_atmosphere.surface_pressure_pa * (1*1*1)) / (8.3144621 * earth_atmosphere.temperature);
+	//double surface_density = earth_atmosphere.surface_pressure_pa /(earth_atmosphere.temperature * (8.3144621 /*plinska konstanta*/  / earth_atmosphere.molar_mass));
+	//double surface_mass = surface_density * (1*1*1);
+	double num_air_particles_2 = surface_mole_number  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
+	//double num_air_particles_2 = (surface_mass / earth_atmosphere.molar_mass) * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
+	
 	// Kolièina molekula po kubnom metru na površini
-	double surface_density = earth_atmosphere.surface_pressure_pa /(earth_atmosphere.temperature * (8.3144621 /*plinska konstanta*/  / earth_atmosphere.molar_mass));
-	double surface_mass = surface_density * (1*1*1);
-	double num_air_particles_2 = (surface_mass / earth_atmosphere.molar_mass)  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
 	double surface_molecule_density = num_air_particles_2 / (1*1*1);
 
 	double K = 2 * pi * pi * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) * (earth_atmosphere.refractivity*earth_atmosphere.refractivity - 1) / surface_molecule_density / 3.0f;
@@ -102,7 +110,8 @@ int main(int argc, char* argv){
 
 	main_engine.K = K;
 
-	main_engine.sample_amount = 10;
+	main_engine.sample_amount_in = 10;
+	main_engine.sample_amount_out = 10;
 
 	main_engine.init();
 
