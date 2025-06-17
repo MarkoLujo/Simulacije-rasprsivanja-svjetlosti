@@ -19,7 +19,7 @@ void RenderEngine::init(){
 	// Inicijalizacija SDL prozora
 	SDL_Init(SDL_INIT_VIDEO);
 
-	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
 	_window = SDL_CreateWindow(
 		"Glavni prozor",         //window title

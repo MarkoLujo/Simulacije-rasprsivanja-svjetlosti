@@ -298,7 +298,7 @@ void main(){
                         float t_max_tmp = max(t1,t2); // Toèke manje od 0 nalaze se iza poèetne pozicije zrake
                         float t_min_tmp = min(t1,t2);
 
-                        if (t_max_tmp > 0){ // Veæe presjecište je ispred zrake
+                        if (t_max_tmp + 0.1 > 0){ // Veæe presjecište je ispred zrake
                             hit_surface = true;
                         }
                     }
@@ -317,7 +317,7 @@ void main(){
                     // Koristi se za sunèevo svjetlo i površinu planeta
                     vec3 arriving_light = vec3(0,0,0);
 
-                    if (!hit_surface){ 
+                    if (!planet_reflection || i < camera_info.sampleAmount_in-1){ 
 
                         // In-scattering - koliko svjetlosti se dobije raspršivanjem sunèevih zraka
                         
@@ -368,12 +368,12 @@ void main(){
                             arriving_light.b = ray_light.b * exp(-rayleigh_part_1_blue );
                                 
                             // Množenje s kutom
-                            float sun_angle = acos(dot(normalize(ray_sun_vector), normalize(velocity)));
+                            double cos_sun_angle = dot(normalize(ray_sun_vector), normalize(velocity));
 
-                            float angle_const_rayleigh = 3.0/(4.0) * (1 + cos(sun_angle) * cos(sun_angle));
+                            float angle_const_rayleigh = float(3.0/(4.0) * (1 + cos_sun_angle * cos_sun_angle));
 
                             float asymmetry_const = atmosphere_info.atmosphere_mie_asymmetry_const; // Todo naði zašto je obrnuto (minus bi trebao biti oko sunca ali nije)
-                            float angle_const_mie = 3.0*(1.0-asymmetry_const*asymmetry_const)/(2.0*(2.0 + asymmetry_const*asymmetry_const)) * (1 + cos(sun_angle) * cos(sun_angle))/pow((1 + asymmetry_const*asymmetry_const - 2*asymmetry_const*cos(sun_angle)), 1.5);
+                            float angle_const_mie = 3.0*(1.0-asymmetry_const*asymmetry_const)/(2.0*(2.0 + asymmetry_const*asymmetry_const)) * float(1 + cos_sun_angle * cos_sun_angle)/pow((1 + asymmetry_const*asymmetry_const - float(2*asymmetry_const*cos_sun_angle)), 1.5);
 
                             float density_ratio = exp(-(length(t_pos) - atmosphere_info.planet_radius)/atmosphere_info.atmosphere_average_distance);
 

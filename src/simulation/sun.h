@@ -8,10 +8,10 @@ struct emitted_wave{
 };*/
 
 struct Sun {
-	float distance;
-	float radius;
+	alignas(4) float distance;
+	alignas(4) float radius;
 
-	float angle;
+	alignas(4) float angle;
 
 	//std::vector<emitted_wave> spectrum;
 };
