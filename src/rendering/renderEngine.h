@@ -122,19 +122,7 @@ struct shader_input_buffer_2 {
 	Planet planet;
 
 	// Dodatna konstanta da se ne mora raèunati za svaki piksel svaki prikaz
-	alignas(8) double K;
-
-	// Ostale postavke
-	alignas(4) float aerosol_density_mul;
-
-	alignas(4) float r_wavelen;
-	alignas(4) float g_wavelen;
-	alignas(4) float b_wavelen;
-	alignas(4) float light_intensity;
-	alignas(16) glm::vec4 light_color; 
-
-
-	
+	alignas(8) double K;	
 };
 
 
@@ -259,7 +247,6 @@ public:
 	Planet main_planet;
 
 
-
 	// Dodatni parametri
 	double K;
 
@@ -271,13 +258,7 @@ public:
 	bool do_rayleigh = true;
 	bool do_mie = true;
 
-	float aerosol_density_mul = 0.1f;
 
-	float r_wavelen = 630;
-	float g_wavelen = 525;
-	float b_wavelen = 440;
-	float light_intensity = 50;
-	glm::vec4 light_color = {1,1,1,1};
 
 private:
 	

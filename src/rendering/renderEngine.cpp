@@ -799,7 +799,6 @@ void RenderEngine::run(){
 
 		if (prev_frame_atmosphere.surface_pressure_pa != main_planet.atmosphere.surface_pressure_pa || 
 			prev_frame_atmosphere.temperature != main_planet.atmosphere.temperature || 
-			prev_frame_atmosphere.molar_mass != main_planet.atmosphere.molar_mass || 
 			prev_frame_atmosphere.refractivity != main_planet.atmosphere.refractivity
 			){
 			recalculate_K();
@@ -819,10 +818,11 @@ void RenderEngine::run(){
 
 void RenderEngine::recalculate_K(){
 
-	double surface_density = main_planet.atmosphere.surface_pressure_pa /(main_planet.atmosphere.temperature * (8.3144621 /*plinska konstanta*/  / main_planet.atmosphere.molar_mass));
-	double surface_mass = surface_density * (1*1*1);
-	double num_air_particles_2 = (surface_mass / main_planet.atmosphere.molar_mass)  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
+
+	double surface_mole_number =  (main_planet.atmosphere.surface_pressure_pa * (1*1*1)) / (8.3144621 * main_planet.atmosphere.temperature);
+	double num_air_particles_2 = surface_mole_number  * (6.02214076 * pow(10,23)) /*Avogadrova konstanta*/;
 	double surface_molecule_density = num_air_particles_2 / (1*1*1);
+
 
 	double pi = 3.141592654;
 	K = 2 * pi * pi * (main_planet.atmosphere.refractivity*main_planet.atmosphere.refractivity - 1) * (main_planet.atmosphere.refractivity*main_planet.atmosphere.refractivity - 1) / surface_molecule_density / 3.0f;
@@ -873,7 +873,7 @@ void RenderEngine::show_gui(){
 		ImGui::SliderFloat("Visina prosjecne gustoce zraka", &main_planet.atmosphere.average_density_height, 100,  20000, "%.0f m");
 		ImGui::SliderFloat("Visina prosjecne gustoce aerosola", &main_planet.atmosphere.average_density_height_aerosol, 100,  20000, "%.0f m");
 
-		ImGui::SliderFloat("Relativna kolicina aerosola", &aerosol_density_mul, 0.0f,  20.0f, "%.3f %", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Relativna kolicina aerosola", &main_planet.atmosphere.aerosol_density_mul, 0.0f,  20.0f, "%.3f %", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Mie asimetrija", &main_planet.atmosphere.mie_asymmetry_const, -0.99,  0.99, "%.3f");
 
 		ImGui::SliderFloat("Gornja granica atmosfere", &main_planet.atmosphere.upper_limit, 10 * 100,  100 * 100000, "%.0f m", ImGuiSliderFlags_Logarithmic);
@@ -886,12 +886,12 @@ void RenderEngine::show_gui(){
 
 		ImGui::SeparatorText("Kontrole svjetla");
 
-		ImGui::SliderFloat("Intenzitet svjetlosti", &light_intensity, 0.0f,  200.0f, "%.2f");
-		ImGui::SliderFloat3("Boja svjetlosti", &light_color[0], 0.0f,  1.0f, "%.2f");
+		ImGui::SliderFloat("Intenzitet svjetlosti", &sun.light_intensity, 0.0f,  200.0f, "%.2f");
+		ImGui::SliderFloat3("Boja svjetlosti", &sun.light_color[0], 0.0f,  1.0f, "%.2f");
 
-		ImGui::SliderFloat("Valna duljina crvene komponente", &r_wavelen, 10,  2000, "%.2f nm");
-		ImGui::SliderFloat("Valna duljina zelene komponente", &g_wavelen, 10,  2000, "%.2f nm");
-		ImGui::SliderFloat("Valna duljina plave komponente", &b_wavelen, 10,  2000, "%.2f nm");
+		ImGui::SliderFloat("Valna duljina crvene komponente", &sun.r_wavelen, 10,  2000, "%.2f nm");
+		ImGui::SliderFloat("Valna duljina zelene komponente", &sun.g_wavelen, 10,  2000, "%.2f nm");
+		ImGui::SliderFloat("Valna duljina plave komponente", &sun.b_wavelen, 10,  2000, "%.2f nm");
 
 
 		ImGui::End();
@@ -1193,13 +1193,6 @@ void RenderEngine::compute(){
 	atmosphere_input.planet = main_planet;
 	atmosphere_input.K = K;
 
-	atmosphere_input.aerosol_density_mul = aerosol_density_mul;
-
-	atmosphere_input.r_wavelen = r_wavelen;
-	atmosphere_input.g_wavelen = g_wavelen;
-	atmosphere_input.b_wavelen = b_wavelen;
-	atmosphere_input.light_intensity = light_intensity;
-	atmosphere_input.light_color = light_color;
 
 	vmaMapMemory(_allocator, _frames[_current_frame]._atmosphere_uniform_buffer._allocation, &data);
 	memcpy(data, &atmosphere_input, sizeof(shader_input_buffer_2));

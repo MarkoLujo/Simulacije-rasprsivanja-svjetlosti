@@ -28,7 +28,14 @@ int main(int argc, char* argv){
 		1.496f * powf(10, 8) * 1000, // Udaljenost (1.496 * 10^8 km)
 		1391400.0f * 1000, // Velièina
 
-		50.0f // Kut nagiba
+		50.0f, // Kut nagiba
+
+		630, // Valne duljine RGB komponenata svjetlosti
+		525,
+		440,
+
+		50, // ukupan intenzitet svjetlosti
+		{1.0,1.0,1.0,1.0} // boja svjetlosti - bijela
 	};
 
 	Atmosphere earth_atmosphere = Atmosphere{
@@ -40,14 +47,13 @@ int main(int argc, char* argv){
 		// ako je tlak na površini visok, po raèunu tlak svugdje drugdje je puno niži (a zrake su èešæe visoko u zraku)
 
 
+		0.1f, // Relativna kolièina aerosola
 		0.90, // Konstanta asmetrije kuta aerosolnog Mie raspršivanja
 
 		100 * 1000, // Maksimalna razina
 
 		270, // Aproksimacija da je cijela atmosfera na -3 Celzijeva stupnja
-		0.0289652, // Približna molarna masa zraka (u kg/mol)
 		1.0002793, // Refraktivni indeks
-		364 * powf(10, -12) // Kinetièki radijus atoma dušika
 	};
 
 

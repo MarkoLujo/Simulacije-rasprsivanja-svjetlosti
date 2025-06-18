@@ -1,11 +1,5 @@
 #include <vector>
 
-/*
-struct emitted_wave{
-	double wavelenght;
-	double intensity;
-
-};*/
 
 struct Sun {
 	alignas(4) float distance;
@@ -13,5 +7,10 @@ struct Sun {
 
 	alignas(4) float angle;
 
-	//std::vector<emitted_wave> spectrum;
+	alignas(4) float r_wavelen;
+	alignas(4) float g_wavelen;
+	alignas(4) float b_wavelen;
+	alignas(4) float light_intensity;
+	
+	alignas(16) glm::vec4 light_color;
 };

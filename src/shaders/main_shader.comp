@@ -29,6 +29,12 @@ layout(set = 0, binding = 1) uniform InputBuffer2 {
     float sun_radius;
     float sun_angle;
 
+    float r_wavelen;
+    float g_wavelen;
+    float b_wavelen;
+    float light_intensity;
+    vec4 light_color; 
+
     // Planet
     float planet_radius;
 
@@ -36,25 +42,19 @@ layout(set = 0, binding = 1) uniform InputBuffer2 {
     float atmosphere_surface_pressure_pa;
 	float atmosphere_average_distance;
 	float atmosphere_average_distance_aerosol;
+    float aerosol_density_mul;
     float atmosphere_mie_asymmetry_const;
+
 	float atmosphere_upper_limit;
 
     float atmosphere_temperature;
-	float atmosphere_molar_mass;
-
 	float atmosphere_refractivity;
-    float atmosphere_atom_radius;
 
     // Dodatni parametri
     double K;
 
-    float aerosol_density_mul;
 
-    float r_wavelen;
-    float g_wavelen;
-    float b_wavelen;
-    float light_intensity;
-    vec4 light_color; 
+
 
 } atmosphere_info;
 
@@ -447,7 +447,7 @@ void main(){
 
                         float mie_part_1 = 0;
                         if ((camera_info.mode & 2) != 0){
-                            // Optièka dubina aerpolnog dijela atmosfere
+                            // Optièka dubina aerosolnog dijela atmosfere
                             mie_part_1 =  4 * pi * average_density_ratio_2_mie * (float(atmosphere_info.K) / (mie_scatter_constant)) * atmosphere_info.aerosol_density_mul;
                         }
 
