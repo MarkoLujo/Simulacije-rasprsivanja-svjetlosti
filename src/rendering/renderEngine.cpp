@@ -865,25 +865,23 @@ void RenderEngine::show_gui(){
 		ImGui::Checkbox("Rayleigh simulacija", &do_rayleigh);
 		ImGui::Checkbox("Aerosolna Mie simulacija", &do_mie);
 
-
 		ImGui::SeparatorText("Kontrole planeta");
-		ImGui::InputFloat("Radijus planeta", &main_planet.radius, 1000, 1000 * 100, "%.0f");
-		//ImGui::SliderFloat("Radijus planeta", &main_planet.radius, 6371 * 500,  6371 * 2000, "%.0f", ImGuiSliderFlags_Logarithmic);
+		ImGui::InputFloat("Radijus planeta", &main_planet.radius, 1000, 1000 * 100, "%.0f m");
 		
 		ImGui::SeparatorText("Kontrole atmosfere");
-		ImGui::SliderFloat("Povrsinski tlak (pa)", &main_planet.atmosphere.surface_pressure_pa, 101325/16.0f,  101325*4.0f, "%.0f", ImGuiSliderFlags_Logarithmic);		
-		ImGui::SliderFloat("Visina prosjecne gustoce zraka (m)", &main_planet.atmosphere.average_density_height, 100,  20000, "%.0f");
-		ImGui::SliderFloat("Visina prosjecne gustoce aerosola", &main_planet.atmosphere.average_density_height_aerosol, 100,  20000, "%.0f");
+		ImGui::SliderFloat("Povrsinski tlak", &main_planet.atmosphere.surface_pressure_pa, 101325/16.0f,  101325*4.0f, "%.0f Pa", ImGuiSliderFlags_Logarithmic);		
+		ImGui::SliderFloat("Visina prosjecne gustoce zraka", &main_planet.atmosphere.average_density_height, 100,  20000, "%.0f m");
+		ImGui::SliderFloat("Visina prosjecne gustoce aerosola", &main_planet.atmosphere.average_density_height_aerosol, 100,  20000, "%.0f m");
 
-		ImGui::SliderFloat("Relativna kolicina aerosola", &aerosol_density_mul, 0.0f,  20.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Relativna kolicina aerosola", &aerosol_density_mul, 0.0f,  20.0f, "%.3f %", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Mie asimetrija", &main_planet.atmosphere.mie_asymmetry_const, -0.99,  0.99, "%.3f");
 
-		ImGui::SliderFloat("Gornja granica atmosfere", &main_planet.atmosphere.upper_limit, 100 * 1000,  100 * 10000, "%.0f");
+		ImGui::SliderFloat("Gornja granica atmosfere", &main_planet.atmosphere.upper_limit, 10 * 100,  100 * 100000, "%.0f m", ImGuiSliderFlags_Logarithmic);
 
 
 		ImGui::SeparatorText("Kontrole Sunca");
-		ImGui::SliderFloat("Udaljenost", &sun.distance, 1.496f*powf(10, 4)*1000,  1.496f*powf(10, 10)*1000, "%.0f", ImGuiSliderFlags_Logarithmic);
-		ImGui::SliderFloat("Velicina", &sun.radius, 1391400.0f,  1391400.0f * 100000, "%.0f", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Udaljenost", &sun.distance, 1.496f*powf(10, 4)*1000,  1.496f*powf(10, 10)*1000, "%.0f m", ImGuiSliderFlags_Logarithmic);
+		ImGui::SliderFloat("Velicina", &sun.radius, 1391400.0f,  1391400.0f * 100000, "%.0f m", ImGuiSliderFlags_Logarithmic);
 		ImGui::SliderFloat("Kut", &sun.angle, 0.0f,  360.0f, "%.0f");
 
 		ImGui::SeparatorText("Kontrole svjetla");
@@ -891,9 +889,9 @@ void RenderEngine::show_gui(){
 		ImGui::SliderFloat("Intenzitet svjetlosti", &light_intensity, 0.0f,  200.0f, "%.2f");
 		ImGui::SliderFloat3("Boja svjetlosti", &light_color[0], 0.0f,  1.0f, "%.2f");
 
-		ImGui::SliderFloat("Valna duljina crvene komponente (nm)", &r_wavelen, 10,  2000, "%.2f");
-		ImGui::SliderFloat("Valna duljina zelene komponente (nm)", &g_wavelen, 10,  2000, "%.2f");
-		ImGui::SliderFloat("Valna duljina plave komponente (nm)", &b_wavelen, 10,  2000, "%.2f");
+		ImGui::SliderFloat("Valna duljina crvene komponente", &r_wavelen, 10,  2000, "%.2f nm");
+		ImGui::SliderFloat("Valna duljina zelene komponente", &g_wavelen, 10,  2000, "%.2f nm");
+		ImGui::SliderFloat("Valna duljina plave komponente", &b_wavelen, 10,  2000, "%.2f nm");
 
 
 		ImGui::End();

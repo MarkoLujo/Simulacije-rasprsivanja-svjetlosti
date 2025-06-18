@@ -96,7 +96,7 @@ struct Frame {
 };
 
 
-// Odgovara¸1. strukturi koju glavni sjenèar prima
+// Odgovara 1. strukturi koju glavni sjenèar prima
 // Predstavlja informacije o kameri
 struct shader_input_buffer_1 {
 	glm::mat4 lookDir;
@@ -116,14 +116,12 @@ struct shader_input_buffer_1 {
 	int mode;
 };
 
-
+// Informacije o atmosferi
 struct shader_input_buffer_2 {
 	Sun sun;
 	Planet planet;
 
-
-	// Optièki presjek puta Avogadrova konstanta (6.02214076 * pow(10,23)). Zbog gubitka preciznosti (jer Rayleighova jednadžba sadrži množenje jako malog presjeka s jako velikim brojem èestica),
-	// ovi presjeci su veæ pomnoženi s konstantom te je taj korak izostavljen u sjenèaru. 
+	// Dodatna konstanta da se ne mora raèunati za svaki piksel svaki prikaz
 	alignas(8) double K;
 
 	// Ostale postavke
@@ -135,7 +133,7 @@ struct shader_input_buffer_2 {
 	alignas(4) float light_intensity;
 	alignas(16) glm::vec4 light_color; 
 
-	// Dodano da se ne mora raèunati za svaki piksel svaki prikaz
+
 	
 };
 
@@ -253,14 +251,17 @@ public:
 
 	Camera_movement main_camera_movement;
 
+	Atmosphere prev_frame_atmosphere;
+
 	Sun sun;
 	float sun_movement = 0;
 
 	Planet main_planet;
 
-	Atmosphere prev_frame_atmosphere;
-	double K;
 
+
+	// Dodatni parametri
+	double K;
 
 	int sample_amount_in;
 	int sample_amount_out;
@@ -304,7 +305,9 @@ private:
 
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 
+	// Sadrži strukture svih GUI elemenata
 	void show_gui();
+
 
 	// Glavni proces pozivanja sjenèara
 	void compute();
@@ -313,6 +316,6 @@ private:
 	void handle_input();
 	void process_movement();
 
-
+	// Zove se kada se povezani parametri atmosfere promjene
 	void recalculate_K();
 };
