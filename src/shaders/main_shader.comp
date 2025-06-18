@@ -283,9 +283,10 @@ void main(){
                     // Kolièina svjetla koje doðe do toèke uzorka
                     vec3 in_scatter_light = vec3(0,0,0);
 
-                    // Prosjeèna valna duljina za aproksimaciju Mie raspršivanja
-                    float avg_wavelen = (red_wavelenght + green_wavelenght + blue_wavelenght) / 3;
-                    float mie_scatter_constant = avg_wavelen * avg_wavelen * avg_wavelen * avg_wavelen;
+                    //float avg_wavelen = (red_wavelenght + green_wavelenght + blue_wavelenght) / 3;
+                    // Konstantna valna duljina za aproksimaciju Mie raspršivanja
+                    float const_wavelen = (900 * 0.000000001);
+                    float mie_scatter_constant = const_wavelen * const_wavelen * const_wavelen * const_wavelen;
 
 
                     // Koristi se za sunèevo svjetlo i površinu planeta
