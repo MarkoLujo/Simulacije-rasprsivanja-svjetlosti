@@ -8,7 +8,9 @@ file(GLOB PROJECT_SIMULATION simulation/*.cpp
                              simulation/*.h)
 
 file(GLOB PROJECT_THIRDPARTY third-party/*.cpp
-			     third-party/*.h)
+			     third-party/*.h
+			     third-party/imgui/*.cpp
+			     third-party/imgui/*.h)
 
 file(GLOB PROJECT_SHADERS shaders/*.comp
                           shaders/*.frag
@@ -21,7 +23,7 @@ source_group("Source Files/Shaders" FILES ${PROJECT_SHADERS})
 source_group("Source Files/Third-party" FILES ${PROJECT_THIRDPARTY})
 
 
-add_executable(main_program
+add_executable(simulacija_atmosfere
 
   ${PROJECT_MAIN}
 
@@ -34,10 +36,10 @@ add_executable(main_program
 )
 
 
-target_link_libraries(main_program)
+target_link_libraries(simulacija_atmosfere)
 
 
 add_custom_command(
-    TARGET main_program POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/shaders ${CMAKE_CURRENT_BINARY_DIR}/src/shaders
+    TARGET simulacija_atmosfere POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/shaders ${CMAKE_CURRENT_BINARY_DIR}/shaders
 )

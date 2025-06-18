@@ -22,7 +22,7 @@ void RenderEngine::init(){
 	SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
 
 	_window = SDL_CreateWindow(
-		"Glavni prozor",         //window title
+		"Simulacija atmosferskog rasprsivanja v1.0", //window title
 		SDL_WINDOWPOS_UNDEFINED, //window position x
 		SDL_WINDOWPOS_UNDEFINED, //window position y
 		_windowExtent.width,     //window width in pixels
@@ -520,7 +520,7 @@ void RenderEngine::init_compute_pipelines(){
 
 	// Uèitavanje kompilirane datoteke sjenèara
 	VkShaderModule mainShader;
-	char shaderName1[] = "./src/shaders/main_shader.spv";
+	char shaderName1[] = "./shaders/main_shader.spv";
 	if (!load_shader_module(shaderName1, &mainShader)) {
 		std::cerr << "Glavni komputacijski sjencar ('" << shaderName1 << "') nije uspio biti ucitan :(\n";
 	}
