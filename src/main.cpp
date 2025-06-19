@@ -43,8 +43,7 @@ int main(int argc, char* argv){
 
 		8700, // Visina na kojoj se nalazi prosjeèna gustoæa atmosfere
 		1200, // Visina na kojoj se nalazi prosjeèna gustoæa aerosola u atmosferi
-		// Razlog zašto veæi površinski tlak daje "manje gustu" atmosferu je zbog naèina raèunanja s prosjeènom vrijednosti 
-		// ako je tlak na površini visok, po raèunu tlak svugdje drugdje je puno niži (a zrake su èešæe visoko u zraku)
+
 
 
 		0.1f, // Relativna kolièina aerosola
