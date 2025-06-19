@@ -25,8 +25,8 @@ void RenderEngine::init(){
 		"Simulacija atmosferskog rasprsivanja v1.0", //window title
 		SDL_WINDOWPOS_UNDEFINED, //window position x
 		SDL_WINDOWPOS_UNDEFINED, //window position y
-		_windowExtent.width,     //window width in pixels
-		_windowExtent.height,    //window height in pixels
+		_screen_size_x,     //window width in pixels
+		_screen_size_y,    //window height in pixels
 		window_flags
 	);
 
